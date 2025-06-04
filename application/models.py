@@ -4,20 +4,33 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 
 #user database
-class User(UserMixin,db.Model):
-    id = db.Column(db.Integer,primary_key=True)
-    user_name = db.Column(db.String(80),unique=True,nullable=False)
-    password_hash = db.Column(db.String(120),nullable=False)
-    is_admin = db.Column(db.boolean,default= False)
-    quiz_attempt = db.relationship('QuizAttempt',backref='user',lazy=True,cascade='all,delete-orphan')
+from flask_security import UserMixin, RoleMixin
+import uuid
 
-    def set_password(self,password):
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_name = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    active = db.Column(db.Boolean(), default=True)
+    fs_uniquifier = db.Column(db.String(255), unique=True, default=lambda: str(uuid.uuid4()))
+    
+    # Relationship with roles (if needed)
+    roles = db.relationship('Role', secondary='roles_users', backref=db.backref('users', lazy='dynamic'))
+
+    quiz_attempt = db.relationship('QuizAttempt', backref='user', lazy=True, cascade='all, delete-orphan')
+
+    def set_password(self, password):
         self.password_hash = generate_password_hash(password)
-    def check_password(self,password):
-        return check_password_hash(self.password_hash,password)
-class Role(db.Model):
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+class Role(RoleMixin, db.Model):
     id = db.Column(db.Integer(), primary_key=True)
     name = db.Column(db.String(80), unique=True)
+    description = db.Column(db.String(255))
+
 class Subject(db.Model):
     id = db.Column(db.Integer,primary_key=True)
     name = db.Column(db.String(100),nullable=False)
