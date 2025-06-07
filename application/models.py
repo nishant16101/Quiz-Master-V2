@@ -1,35 +1,43 @@
-from flask_login import UserMixin,RoleMixin
+from flask_security import UserMixin, RoleMixin
 from .database import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-
-#user database
-from flask_security import UserMixin, RoleMixin
 import uuid
+
+# Association table
+roles_users = db.Table(
+    'roles_users',
+    db.Column('user_id', db.Integer(), db.ForeignKey('user.id')),
+    db.Column('role_id', db.Integer(), db.ForeignKey('role.id'))
+)
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_name = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)
     active = db.Column(db.Boolean(), default=True)
     fs_uniquifier = db.Column(db.String(255), unique=True, default=lambda: str(uuid.uuid4()))
     
-    # Relationship with roles (if needed)
-    roles = db.relationship('Role', secondary='roles_users', backref=db.backref('users', lazy='dynamic'))
-
+    roles = db.relationship('Role', secondary=roles_users, backref=db.backref('users', lazy='dynamic'))
     quiz_attempt = db.relationship('QuizAttempt', backref='user', lazy=True, cascade='all, delete-orphan')
+    @property
+    def password(self):
+        raise AttributeError("Password is write-only.")
 
-    def set_password(self, password):
+    @password.setter
+    def password(self, password):
         self.password_hash = generate_password_hash(password)
-    
-    def check_password(self, password):
+
+    def verify_password(self, password):
         return check_password_hash(self.password_hash, password)
+
 
 class Role(RoleMixin, db.Model):
     id = db.Column(db.Integer(), primary_key=True)
     name = db.Column(db.String(80), unique=True)
     description = db.Column(db.String(255))
+
 
 class Subject(db.Model):
     id = db.Column(db.Integer,primary_key=True)

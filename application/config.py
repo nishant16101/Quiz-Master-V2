@@ -1,14 +1,14 @@
-class Config():
+class Config:
     DEBUG = False
-    SQLAlCHEMY_TRACK_MODIFICATIONS = True
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 class LocalDevelopmentConfig(Config):
-    SQLAlCHEMY_DATABASE_URI = "sqlite:///lmsv2.sqlite3"
     DEBUG = True
+    SQLALCHEMY_DATABASE_URI = "sqlite:///lmsv2.sqlite3"
 
-    #config for security
-    SECRET_KEY = "this-is-a-secret-key" #hash user creds in session
-    SECURITY_PASSWORD_HASH = "bcrypt" #mechanism for hashing password
-    SECURITY_PASSWORD_SALT= "this-is-a-password-salt" #helps in hashing in password
-    WTF_CSRF_ENABLED = False
+    # Flask-Security config
+    SECRET_KEY = "this-is-a-secret-key"
+    SECURITY_PASSWORD_HASH = "bcrypt"
+    SECURITY_PASSWORD_SALT = "this-is-a-password-salt"
     SECURITY_TOKEN_AUTHENTICATION_HEADER = "Authentication-Token"
+    WTF_CSRF_ENABLED = False  # Disable CSRF if you're using fetch from frontend
