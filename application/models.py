@@ -15,23 +15,13 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_name = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=False)
+    password = db.Column(db.String(255), nullable=False)
+
     active = db.Column(db.Boolean(), default=True)
     fs_uniquifier = db.Column(db.String(255), unique=True, default=lambda: str(uuid.uuid4()))
     
     roles = db.relationship('Role', secondary=roles_users, backref=db.backref('users', lazy='dynamic'))
     quiz_attempt = db.relationship('QuizAttempt', backref='user', lazy=True, cascade='all, delete-orphan')
-    @property
-    def password(self):
-        raise AttributeError("Password is write-only.")
-
-    @password.setter
-    def password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def verify_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
 
 class Role(RoleMixin, db.Model):
     id = db.Column(db.Integer(), primary_key=True)
