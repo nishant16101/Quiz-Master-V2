@@ -1,7 +1,9 @@
 from flask import current_app as app,jsonify,request
-from flask_security import auth_required,roles_required,current_user,roles_accepted,current_user
+from flask_security import auth_required,roles_required,current_user,roles_accepted,current_user,login_user,logout_user
 from application.models import User,QuizAttempt,Subject,Chapter,Quiz,Question
+from werkzeug.security import check_password_hash, generate_password_hash
 from application.database import db
+from datetime import datetime
 
 
 #--------- admin routes
@@ -369,3 +371,383 @@ def delete_question(question_id):
     db.session.delete(question)
     db.session.commit()
     return jsonify({"message": f"Question id {question_id} deleted successfully"}), 200
+
+
+
+#===================User routes
+#user registration
+@app.route('/user/register',methods=['POST'])
+def user_register():
+    data = request.json
+    #check if user is existing
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({"error":"Email already exist and user registered"}),400
+    if User.query.filter_by(user_name=data['user_name']).first():
+        return jsonify({"error":"User name already taken"})
+    user = User(
+        user_name= data['user_name'],
+        email = data['email'],
+        password = generate_password_hash(data['passowrd']),
+        active=True
+    )
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({"message":"User registered successfully","user_id":user.id}),201
+
+#user login
+@app.route('/user/login',methods=['POST'])
+def user_login():
+    data = request.json
+    user = User.query.filter_by(email=data['email']).first()
+    if user and check_password_hash(user.password,data['password']):
+        login_user(user)
+        return jsonify({
+            "message":"Login successful",
+            "user":{
+                "id":user.id,
+                "email":user.email,
+                "usernmae":user.user_name
+                
+                }
+        }),200
+    return jsonify({"error": "Invalid credentials"}), 401
+
+# User Logout
+@app.route('/user/logout', methods=['POST'])
+@auth_required('token')
+def user_logout():
+    logout_user()
+    return jsonify({"message": "Logged out successfully"}), 200
+
+
+#get user profile
+@app.route('/user/profile',methods=['GET'])
+@auth_required('token')
+def get_user_profile():
+    user = current_user
+    attempts = QuizAttempt.query.filter_by(user_id=user.id).all()
+    subject_summary = {}
+    for attempt in attempts:
+        subject = attempt.quiz.chapter.subject
+        subject_name = subject.name
+        if subject_name not in subject_summary:
+            subject_summary[subject_name] = {
+                "subject_id":subject.id,
+                "subject_name":subject.name,
+                "quizzes_attempted":0,
+                "total_score":0.0
+            }
+        subject_summary[subject_name]["quizzes_attempted"] +=1
+        subject_summary[subject_name]["total_score"] += attempt.score
+    return jsonify({
+        "id": user.id,
+        "username": user.user_name,
+        "email": user.email,
+        "subject_statistics": list(subject_summary.values()),
+        "recent_attempts": [{
+            "quiz_id": attempt.quiz_id,
+            "quiz_title": attempt.quiz.title,
+            "score": attempt.score,
+            "subject": attempt.quiz.chapter.subject.name,
+            "date_attempted": attempt.date_attempted.strftime('%Y-%m-%d %H:%M:%S')
+        } for attempt in attempts[-5:]]  # Last 5 attempts
+    })
+
+# Update User Profile
+@app.route('/user/profile', methods=['PUT'])
+@auth_required('token')
+def update_user_profile():
+    user = current_user
+    data = request.json
+    
+    # Update username if provided and not taken by another user
+    if 'username' in data:
+        existing_user = User.query.filter_by(user_name=data['username']).first()
+        if existing_user and existing_user.id != user.id:
+            return jsonify({"error": "Username already taken"}), 400
+        user.user_name = data['username']
+    
+    # Update email if provided and not taken by another user
+    if 'email' in data:
+        existing_user = User.query.filter_by(email=data['email']).first()
+        if existing_user and existing_user.id != user.id:
+            return jsonify({"error": "Email already registered"}), 400
+        user.email = data['email']
+    
+    # Update password if provided
+    if 'password' in data:
+        user.password = generate_password_hash(data['password'])
+    
+    db.session.commit()
+    return jsonify({"message": "Profile updated successfully"})
+
+@app.route('/user/subjects', methods=['GET'])
+@auth_required('token')
+def get_subjects_for_user():
+    subjects = Subject.query.all()
+    return jsonify([{
+        "id": subject.id,
+        "name": subject.name,
+        "description": subject.description,
+        "chapters_count": len(subject.chapters)
+    } for subject in subjects])
+
+
+# Get Subject Details with Chapters
+@app.route('/user/subject/<int:subject_id>', methods=['GET'])
+@auth_required('token')
+def get_subject_details(subject_id):
+    subject = Subject.query.get_or_404(subject_id)
+    return jsonify({
+        "id": subject.id,
+        "name": subject.name,
+        "description": subject.description,
+        "chapters": [{
+            "id": chapter.id,
+            "name": chapter.name,
+            "description": chapter.description,
+            "quizzes_count": len(chapter.quizzes)
+        } for chapter in subject.chapters]
+    })
+
+# Get Chapter Details with Quizzes
+@app.route('/user/chapter/<int:chapter_id>', methods=['GET'])
+@auth_required('token')
+def get_chapter_details(chapter_id):
+    chapter = Chapter.query.get_or_404(chapter_id)
+    
+    # Get user's attempts for quizzes in this chapter
+    user_attempts = {}
+    attempts = QuizAttempt.query.filter_by(user_id=current_user.id).all()
+    for attempt in attempts:
+        if attempt.quiz.chapter_id == chapter_id:
+            if attempt.quiz_id not in user_attempts:
+                user_attempts[attempt.quiz_id] = []
+            user_attempts[attempt.quiz_id].append({
+                "score": attempt.score,
+                "date": attempt.date_attempted.strftime('%Y-%m-%d %H:%M:%S')
+            })
+    
+    return jsonify({
+        "id": chapter.id,
+        "name": chapter.name,
+        "description": chapter.description,
+        "subject": {
+            "id": chapter.subject.id,
+            "name": chapter.subject.name
+        },
+        "quizzes": [{
+            "id": quiz.id,
+            "title": quiz.title,
+            "duration": quiz.duration,
+            "questions_count": len(quiz.questions),
+            "user_attempts": user_attempts.get(quiz.id, [])
+        } for quiz in chapter.quizzes]
+    })
+# ===== QUIZ ATTEMPT SYSTEM =====
+
+# Start Quiz (Get Quiz Questions)
+@app.route('/user/quiz/<int:quiz_id>/start', methods=['GET'])
+@auth_required('token')
+def start_quiz(quiz_id):
+    quiz = Quiz.query.get_or_404(quiz_id)
+    
+    # Return quiz details without correct answers
+    return jsonify({
+        "id": quiz.id,
+        "title": quiz.title,
+        "duration": quiz.duration,
+        "chapter": quiz.chapter.name,
+        "subject": quiz.chapter.subject.name,
+        "questions": [{
+            "id": question.id,
+            "content": question.content,
+            "options": {
+                "A": question.option_a,
+                "B": question.option_b,
+                "C": question.option_c,
+                "D": question.option_d
+            }
+        } for question in quiz.questions]
+    })
+
+# Submit Quiz Attempt
+@app.route('/user/quiz/<int:quiz_id>/submit', methods=['POST'])
+@auth_required('token')
+def submit_quiz(quiz_id):
+    quiz = Quiz.query.get_or_404(quiz_id)
+    data = request.json
+    
+    # data should contain: {"answers": {"question_id": "A", "question_id": "B", ...}}
+    user_answers = data.get('answers', {})
+    
+    # Calculate score
+    correct_answers = 0
+    total_questions = len(quiz.questions)
+    detailed_results = []
+    
+    for question in quiz.questions:
+        question_id = str(question.id)
+        user_answer = user_answers.get(question_id, "")
+        is_correct = user_answer.upper() == question.correct_answer.upper()
+        
+        if is_correct:
+            correct_answers += 1
+        
+        detailed_results.append({
+            "question_id": question.id,
+            "question": question.content,
+            "user_answer": user_answer,
+            "correct_answer": question.correct_answer,
+            "is_correct": is_correct,
+            "options": {
+                "A": question.option_a,
+                "B": question.option_b,
+                "C": question.option_c,
+                "D": question.option_d
+            }
+        })
+    
+    # Calculate percentage score
+    score_percentage = (correct_answers / total_questions) * 100 if total_questions > 0 else 0
+    
+    # Save quiz attempt
+    quiz_attempt = QuizAttempt(
+        user_id=current_user.id,
+        quiz_id=quiz_id,
+        score=round(score_percentage, 2),
+        date_attempted=datetime.utcnow()
+    )
+    
+    db.session.add(quiz_attempt)
+    db.session.commit()
+    
+    return jsonify({
+        "message": "Quiz submitted successfully",
+        "attempt_id": quiz_attempt.id,
+        "score": {
+            "correct_answers": correct_answers,
+            "total_questions": total_questions,
+            "percentage": round(score_percentage, 2)
+        },
+        "results": detailed_results
+    })
+
+# Get Quiz Attempt Details
+@app.route('/user/attempt/<int:attempt_id>', methods=['GET'])
+@auth_required('token')
+def get_attempt_details(attempt_id):
+    attempt = QuizAttempt.query.get_or_404(attempt_id)
+    
+    # Ensure user can only see their own attempts
+    if attempt.user_id != current_user.id:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    return jsonify({
+        "id": attempt.id,
+        "quiz": {
+            "id": attempt.quiz.id,
+            "title": attempt.quiz.title,
+            "chapter": attempt.quiz.chapter.name,
+            "subject": attempt.quiz.chapter.subject.name
+        },
+        "score": attempt.score,
+        "date_attempted": attempt.date_attempted.strftime('%Y-%m-%d %H:%M:%S')
+    })
+
+# Get User's Quiz History
+@app.route('/user/quiz-history', methods=['GET'])
+@auth_required('token')
+def get_quiz_history():
+    attempts = QuizAttempt.query.filter_by(user_id=current_user.id).order_by(QuizAttempt.date_attempted.desc()).all()
+    
+    return jsonify([{
+        "attempt_id": attempt.id,
+        "quiz": {
+            "id": attempt.quiz.id,
+            "title": attempt.quiz.title,
+            "chapter": attempt.quiz.chapter.name,
+            "subject": attempt.quiz.chapter.subject.name
+        },
+        "score": attempt.score,
+        "date_attempted": attempt.date_attempted.strftime('%Y-%m-%d %H:%M:%S')
+    } for attempt in attempts])
+
+# Get User's Performance by Subject
+@app.route('/user/performance', methods=['GET'])
+@auth_required('token')
+def get_user_performance():
+    attempts = QuizAttempt.query.filter_by(user_id=current_user.id).all()
+    
+    # Group by subject
+    subject_performance = {}
+    
+    for attempt in attempts:
+        subject_name = attempt.quiz.chapter.subject.name
+        
+        if subject_name not in subject_performance:
+            subject_performance[subject_name] = {
+                "subject_name": subject_name,
+                "total_attempts": 0,
+                "total_score": 0,
+                "best_score": 0,
+                "attempts": []
+            }
+        
+        subject_performance[subject_name]["total_attempts"] += 1
+        subject_performance[subject_name]["total_score"] += attempt.score
+        subject_performance[subject_name]["best_score"] = max(
+            subject_performance[subject_name]["best_score"], 
+            attempt.score
+        )
+        subject_performance[subject_name]["attempts"].append({
+            "quiz_title": attempt.quiz.title,
+            "score": attempt.score,
+            "date": attempt.date_attempted.strftime('%Y-%m-%d %H:%M:%S')
+        })
+    
+    # Calculate averages
+    for subject in subject_performance.values():
+        subject["average_score"] = round(
+            subject["total_score"] / subject["total_attempts"], 2
+        ) if subject["total_attempts"] > 0 else 0
+    
+    return jsonify(list(subject_performance.values()))
+
+# ===== LEADERBOARD =====
+
+# Get Quiz Leaderboard
+@app.route('/user/quiz/<int:quiz_id>/leaderboard', methods=['GET'])
+@auth_required('token')
+def get_quiz_leaderboard(quiz_id):
+    # Get best attempt for each user for this quiz
+    subquery = db.session.query(
+        QuizAttempt.user_id,
+        db.func.max(QuizAttempt.score).label('best_score')
+    ).filter_by(quiz_id=quiz_id).group_by(QuizAttempt.user_id).subquery()
+    
+    leaderboard = db.session.query(
+        QuizAttempt, User
+    ).join(User).join(
+        subquery, 
+        db.and_(
+            QuizAttempt.user_id == subquery.c.user_id,
+            QuizAttempt.score == subquery.c.best_score,
+            QuizAttempt.quiz_id == quiz_id
+        )
+    ).order_by(QuizAttempt.score.desc()).limit(10).all()
+    
+    quiz = Quiz.query.get_or_404(quiz_id)
+    
+    return jsonify({
+        "quiz": {
+            "id": quiz.id,
+            "title": quiz.title
+        },
+        "leaderboard": [{
+            "rank": idx + 1,
+            "username": user.user_name,
+            "score": attempt.score,
+            "date_attempted": attempt.date_attempted.strftime('%Y-%m-%d %H:%M:%S')
+        } for idx, (attempt, user) in enumerate(leaderboard)]
+    })
