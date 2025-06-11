@@ -12,7 +12,7 @@ roles_users = db.Table(
 )
 
 class User(UserMixin, db.Model):
-    name = db.Column(db.String(20),nullable=False)
+    
     id = db.Column(db.Integer, primary_key=True)
     user_name = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)

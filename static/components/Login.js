@@ -186,9 +186,9 @@ export default{
 
           setTimeout(() => {
             if (data.user.roles.includes("admin")) {
-              this.$router.push('/admin');
+              this.$router.push('/admin/dashboard');
             } else {
-              this.$router.push('/dashboard');
+              this.$router.push('/user/dashboard');
             }
           }, 1500);
         } else {
@@ -240,9 +240,9 @@ export default{
     if (token) {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       if (user.roles && user.roles.includes("admin")) {
-        this.$router.push('/admin');
+        this.$router.push('/admin/dashboard');
       } else {
-        this.$router.push('/dashboard');
+        this.$router.push('user/dashboard');
       }
     }
 

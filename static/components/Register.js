@@ -346,38 +346,37 @@ const Register = {
     }
   },
 
-  methods: {
-    async register() {
-      
-      this.validateForm();
-      if (Object.keys(this.errors).length > 0) return;
+methods: {
+  async register() {
+    this.validateForm();
+    if (Object.keys(this.errors).length > 0) return;
 
-      this.loading = true;
-      try {
-        const response = await fetch('/user/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: this.form.name,
-            email: this.form.email,
-            password: this.form.password,
-          })
-        });
+    this.loading = true;
+    try {
+      const response = await fetch('/user/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_name: this.form.name,       // ✅ corrected key
+          email: this.form.email,
+          password: this.form.password
+        })
+      });
 
-        const data = await response.json();
-        if (response.ok) {
-          this.successMessage = "Account created successfully. Redirecting to Login...";
-          setTimeout(() => this.$router.push('/login'), 2000);
-        } else {
-          this.errorMessage = data.message || "Registration failed. Try again.";
-        }
-      } catch (err) {
-        console.error("Registration error:", err);
-        this.errorMessage = "Network error. Please try again later.";
-      } finally {
-        this.loading = false;
+      const data = await response.json();
+      if (response.ok) {
+        this.successMessage = "Account created successfully. Redirecting to Login...";
+        setTimeout(() => this.$router.push('/login'), 2000);
+      } else {
+        this.errorMessage = data.error || "Registration failed. Try again.";  // ✅ use 'error' instead of 'message'
       }
-    },
+    } catch (err) {
+      console.error("Registration error:", err);
+      this.errorMessage = "Network error. Please try again later.";
+    } finally {
+      this.loading = false;
+    }
+  },
 
     validateForm() {
       this.errors = {};

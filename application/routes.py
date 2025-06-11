@@ -413,7 +413,7 @@ def user_login():
     data = request.json
     user = User.query.filter_by(email=data['email']).first()
     
-    if user and verify_and_update_password(data['password'], user):
+    if user and check_password_hash(user.password, data['password']):
 
         login_user(user)
         return jsonify({
