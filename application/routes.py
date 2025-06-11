@@ -1,9 +1,12 @@
-from flask import current_app as app,jsonify,request
+from flask import current_app as app,jsonify,request,render_template
 from flask_security import auth_required,roles_required,current_user,roles_accepted,current_user,login_user,logout_user
 from application.models import User,QuizAttempt,Subject,Chapter,Quiz,Question
 from werkzeug.security import check_password_hash, generate_password_hash
 from application.database import db
+from flask_security.utils import verify_and_update_password
 from datetime import datetime
+import bcrypt
+from app import app
 
 
 #--------- admin routes
@@ -376,42 +379,67 @@ def delete_question(question_id):
 
 #===================User routes
 #user registration
-@app.route('/user/register',methods=['POST'])
+@app.route('/user/register', methods=['POST'])
 def user_register():
     data = request.json
-    #check if user is existing
+    
+    # Check if user is existing
     if User.query.filter_by(email=data['email']).first():
-        return jsonify({"error":"Email already exist and user registered"}),400
+        return jsonify({"error": "Email already exist and user registered"}), 400
+    
     if User.query.filter_by(user_name=data['user_name']).first():
-        return jsonify({"error":"User name already taken"})
+        return jsonify({"error": "User name already taken"}), 400  # Added status code
+    
     user = User(
-        user_name= data['user_name'],
-        email = data['email'],
-        password = generate_password_hash(data['passowrd']),
+        user_name=data['user_name'],
+        email=data['email'],
+        password=generate_password_hash(data['password']),  # This is correct
         active=True
     )
+    
     db.session.add(user)
     db.session.commit()
-    return jsonify({"message":"User registered successfully","user_id":user.id}),201
+    
+    return jsonify({"message": "User registered successfully", "user":{
+        "id":user.id,
+        "email":user.email,
+        "password":user.password,
+        "user_name":user.user_name
+    }}), 201
 
-#user login
-@app.route('/user/login',methods=['POST'])
+# Login
+@app.route('/api/login', methods=['POST'])
 def user_login():
     data = request.json
     user = User.query.filter_by(email=data['email']).first()
-    if user and check_password_hash(user.password,data['password']):
+    
+    if user and verify_and_update_password(data['password'], user):
+
         login_user(user)
         return jsonify({
-            "message":"Login successful",
-            "user":{
-                "id":user.id,
-                "email":user.email,
-                "usernmae":user.user_name
-                
-                }
-        }),200
-    return jsonify({"error": "Invalid credentials"}), 401
+            "message": "Login successful",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "username": user.user_name,
+                # Fix: user.role doesn't exist in your model - you have roles (plural)
+                "roles": [role.name for role in user.roles] if user.roles else []
+            }
+        }), 200
+    
+    return jsonify({"message": "Invalid credentials"}), 401
 
+#user home
+@app.route('/api/home')
+@auth_required('token')
+@roles_required('user')
+def user_home():
+    user = current_user
+    return jsonify({
+        "username":user.user_name,
+        "email":user.email,
+        
+    })
 # User Logout
 @app.route('/user/logout', methods=['POST'])
 @auth_required('token')
@@ -751,3 +779,22 @@ def get_quiz_leaderboard(quiz_id):
             "date_attempted": attempt.date_attempted.strftime('%Y-%m-%d %H:%M:%S')
         } for idx, (attempt, user) in enumerate(leaderboard)]
     })
+@app.route('/api/stats',methods=['GET'])
+def get_stats():
+    try:
+        # Fetch counts from the database
+        total_quizzes = Quiz.query.count()
+        total_users = User.query.count()
+        total_subjects = Subject.query.count()
+        total_attempts = QuizAttempt.query.count()
+
+        return jsonify({
+            "totalQuizzes": total_quizzes,
+            "totalUsers": total_users,
+            "totalSubjects": total_subjects,
+            "totalAttempts": total_attempts
+        }), 200
+
+    except Exception as e:
+        print("Error fetching stats:", str(e))
+        return jsonify({"error": "Unable to fetch statistics"}), 500

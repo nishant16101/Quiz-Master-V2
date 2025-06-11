@@ -12,28 +12,30 @@ roles_users = db.Table(
 )
 
 class User(UserMixin, db.Model):
+    name = db.Column(db.String(20),nullable=False)
     id = db.Column(db.Integer, primary_key=True)
     user_name = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
-
+    
     active = db.Column(db.Boolean(), default=True)
     fs_uniquifier = db.Column(db.String(255), unique=True, default=lambda: str(uuid.uuid4()))
     
     roles = db.relationship('Role', secondary=roles_users, backref=db.backref('users', lazy='dynamic'))
     quiz_attempt = db.relationship('QuizAttempt', backref='user', lazy=True, cascade='all, delete-orphan')
 
+
+# Rest of your models remain the same...
 class Role(RoleMixin, db.Model):
     id = db.Column(db.Integer(), primary_key=True)
     name = db.Column(db.String(80), unique=True)
     description = db.Column(db.String(255))
 
-
 class Subject(db.Model):
-    id = db.Column(db.Integer,primary_key=True)
-    name = db.Column(db.String(100),nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String)
-    chapters =db.relationship('Chapter',backref='subject',lazy=True,cascade='all,delete-orphan')
+    chapters = db.relationship('Chapter', backref='subject', lazy=True, cascade='all,delete-orphan')
 
 class Chapter(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -49,7 +51,6 @@ class Quiz(db.Model):
     chapter_id = db.Column(db.Integer, db.ForeignKey('chapter.id', ondelete='CASCADE'), nullable=False)
     questions = db.relationship('Question', backref='quiz', lazy=True, cascade='all, delete-orphan')
     attempts = db.relationship('QuizAttempt', backref='quiz', lazy=True, cascade='all, delete-orphan')
-
 
 class Question(db.Model):
     id = db.Column(db.Integer, primary_key=True)
