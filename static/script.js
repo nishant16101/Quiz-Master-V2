@@ -26,7 +26,8 @@ const routes = [
     path:'/user/dashboard',
     component:UserDashboard,
     beforeEnter:requireAuth
-  }
+  },
+  
 ]
 
 const router = new VueRouter({

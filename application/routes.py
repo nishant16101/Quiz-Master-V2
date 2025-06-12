@@ -408,26 +408,31 @@ def user_register():
     }}), 201
 
 # Login
+
 @app.route('/api/login', methods=['POST'])
 def user_login():
     data = request.json
     user = User.query.filter_by(email=data['email']).first()
-    
-    if user and check_password_hash(user.password, data['password']):
 
+    if verify_and_update_password(data['password'], user):
         login_user(user)
+
+        
+        token = user.get_auth_token()
+
         return jsonify({
             "message": "Login successful",
+            "auth_token": token,  # ✅ Include this
             "user": {
                 "id": user.id,
                 "email": user.email,
                 "username": user.user_name,
-                # Fix: user.role doesn't exist in your model - you have roles (plural)
                 "roles": [role.name for role in user.roles] if user.roles else []
             }
         }), 200
-    
+
     return jsonify({"message": "Invalid credentials"}), 401
+
 
 #user home
 @app.route('/api/home')

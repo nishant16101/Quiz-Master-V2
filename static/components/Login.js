@@ -173,7 +173,7 @@ export default{
         const data = await response.json();
 
         if (response.ok) {
-          localStorage.setItem('auth_token', data["auth-token"]);
+          localStorage.setItem('auth_token', data["auth_token"]);
           localStorage.setItem('user', JSON.stringify(data.user));
 
           if (this.form.remember) {
