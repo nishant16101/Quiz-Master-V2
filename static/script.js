@@ -8,6 +8,11 @@ import Footer from './components/Footer.js'
 
 //user
 import UserDashboard from './components/user/UserDashboard.js'
+import UserProfile from './components/user/UserProfile.js'
+import UserSubject from './components/user/UserSubject.js'
+import UserChapter from './components/user/UserChapter.js'
+import UserQuiz from './components/user/UserQuiz.js'
+import UserAttempts from './components/user/UserAttempts.js'
 const requireAuth = (to,from,next)=>{
   const token = localStorage.getItem('auth_token')
   if(token){
@@ -22,11 +27,36 @@ const routes = [
   { path: '/register', component: Register },
 
   //user route
-  {
-    path:'/user/dashboard',
-    component:UserDashboard,
-    beforeEnter:requireAuth
+{ 
+    path: '/dashboard', 
+    component: UserDashboard, 
+    beforeEnter: requireAuth 
   },
+  { 
+    path: '/profile', 
+    component: UserProfile, 
+    beforeEnter: requireAuth 
+  },
+  { 
+    path: '/subjects', 
+    component: UserSubject, 
+    beforeEnter: requireAuth 
+  },
+  { 
+    path: '/chapter/:id', 
+    component: UserChapter, 
+    beforeEnter: requireAuth 
+  },
+  { 
+    path: '/quiz/:id', 
+    component: UserQuiz, 
+    beforeEnter: requireAuth 
+  },
+  { 
+    path: '/attempts', 
+    component: UserAttempts, 
+    beforeEnter: requireAuth 
+  }
   
 ]
 
