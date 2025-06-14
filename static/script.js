@@ -1,33 +1,77 @@
-//general
+// Import existing components
 import Home from './components/Home.js'
 import Login from './components/Login.js'
 import Register from './components/Register.js'
 import NavBar from './components/NavBar.js'
 import Footer from './components/Footer.js'
 
+// Import Admin components
+import AdminDashboard from './components/admin/AdminDashboard.js'
+import AdminUsers from './components/admin/AdminUsers.js'
+import AdminSubjects from './components/admin/AdminSubjects.js'
+import AdminChapters from './components/admin/AdminChapters.js'
+//import AdminQuizzes from './components/admin/AdminQuizzes.js'
+//import AdminQuestions from './components/admin/AdminQuestions.js'
 
-//user
+// Import User components
 import UserDashboard from './components/user/UserDashboard.js'
 import UserProfile from './components/user/UserProfile.js'
 import UserSubject from './components/user/UserSubject.js'
 import UserChapter from './components/user/UserChapter.js'
 import UserQuiz from './components/user/UserQuiz.js'
 import UserAttempts from './components/user/UserAttempts.js'
-const requireAuth = (to,from,next)=>{
-  const token = localStorage.getItem('auth_token')
-  if(token){
+
+// Authentication guard
+const requireAuth = (to, from, next) => {
+  const token = localStorage.getItem('token')
+  if (token) {
     next()
-  }else{
+  } else {
     next('/login')
   }
 }
+
+const requireAdmin = (to, from, next) => {
+  const token = localStorage.getItem('auth_token');
+  const user = JSON.parse(localStorage.getItem('user'));
+
+  if (token && user && user.roles.includes('admin')) {
+    next(); // allow access
+  } else {
+    next('/login'); // redirect to login if not admin
+  }
+};
+
+
 const routes = [
   { path: '/', component: Home },
   { path: '/login', component: Login },
   { path: '/register', component: Register },
-
-  //user route
-{ 
+  
+  // Admin routes
+  { 
+    path: '/admin/dashboard', 
+    component: AdminDashboard, 
+    beforeEnter: requireAdmin 
+  },
+  { 
+    path: '/admin/users', 
+    component: AdminUsers, 
+    beforeEnter: requireAdmin 
+  },
+  { 
+    path: '/admin/subjects', 
+    component: AdminSubjects, 
+    beforeEnter: requireAdmin 
+  },
+  { 
+    path: '/admin/chapters', 
+    component: AdminChapters, 
+    beforeEnter: requireAdmin 
+  },
+  
+  // User routes
+  { 
     path: '/dashboard', 
     component: UserDashboard, 
     beforeEnter: requireAuth 
@@ -57,28 +101,27 @@ const routes = [
     component: UserAttempts, 
     beforeEnter: requireAuth 
   }
-  
 ]
 
 const router = new VueRouter({
-  mode: 'history', // Use history mode for cleaner URLs
   routes
 })
 
-new Vue({
-  el: '#app',
+const app = new Vue({
+  el: "#app",
   router,
-  components: {
-    'nav-bar': NavBar,
-    'foot': Footer
-  },
   template: `
-    <div>
+    <div class="container-fluid">
       <nav-bar></nav-bar>
-      <div class="container mt-4">
-        <router-view></router-view>
-      </div>
+      <router-view></router-view>
       <foot></foot>
     </div>
-  `
+  `,
+  data: {
+    section: "Frontend"
+  },
+  components: {
+    "nav-bar": NavBar,
+    "foot": Footer
+  }
 })

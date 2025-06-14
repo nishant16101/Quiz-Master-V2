@@ -29,7 +29,7 @@ with app.app_context():
             email="user@admin.com",
             user_name="admin01",  # ✅ Correct key
             password=hash_password("1234"),
-            roles=['admin','user']
+            roles=['admin']
     )
     if not app.security.datastore.find_user(email="user1@user.com"):
         app.security.datastore.create_user(

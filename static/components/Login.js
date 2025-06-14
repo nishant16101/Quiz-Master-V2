@@ -186,9 +186,9 @@ export default{
 
           setTimeout(() => {
             if (data.user.roles.includes("admin")) {
-              this.$router.push('/admin/dashboard');
+              this.$router.push('/admin/dashboard').catch(()=>{});
             } else {
-              this.$router.push('/user/dashboard');
+              this.$router.push('/user/dashboard').catch(()=>{});
             }
           }, 1500);
         } else {
