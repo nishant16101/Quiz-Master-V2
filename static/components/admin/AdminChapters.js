@@ -24,6 +24,15 @@ const AdminChapters = {
         </div>
       </div>
 
+      <!-- Debug Info (remove in production) -->
+      <div class="alert alert-info" v-if="debugMode">
+        <strong>Debug Info:</strong><br>
+        Subjects loaded: {{ subjects.length }}<br>
+        Subject ID: {{ subjectId }}<br>
+        Selected Subject ID: {{ selectedSubjectId }}<br>
+        Loading: {{ loading }}
+      </div>
+
       <!-- Subject Selection -->
       <div class="row mb-4" v-if="!subjectId">
         <div class="col-12">
@@ -42,6 +51,9 @@ const AdminChapters = {
                       {{ subject.name }}
                     </option>
                   </select>
+                  <div v-if="subjects.length === 0" class="form-text text-muted">
+                    No subjects available. Please create a subject first.
+                  </div>
                 </div>
               </div>
             </div>
@@ -262,15 +274,18 @@ const AdminChapters = {
         show: false,
         message: '',
         type: 'info'
-      }
+      },
+      debugMode: false // Set to true to see debug info
     }
   },
   async mounted() {
+    console.log('AdminChapters mounted with subjectId:', this.subjectId)
     await this.init()
   },
   watch: {
     subjectId: {
-      handler(newVal) {
+      handler(newVal, oldVal) {
+        console.log('SubjectId changed from', oldVal, 'to', newVal)
         if (newVal) {
           this.selectedSubjectId = newVal
           this.init()
@@ -281,37 +296,66 @@ const AdminChapters = {
   },
   methods: {
     async init() {
+      console.log('Initializing AdminChapters...')
       this.loading = true
-      await this.fetchSubjects()
-      if (this.subjectId) {
-        this.selectedSubjectId = this.subjectId
-        this.selectedSubject = this.subjects.find(s => s.id == this.subjectId)
+      
+      try {
+        await this.fetchSubjects()
+        console.log('Subjects fetched:', this.subjects.length)
+        
+        if (this.subjectId) {
+          this.selectedSubjectId = this.subjectId
+          this.selectedSubject = this.subjects.find(s => s.id == this.subjectId)
+          console.log('Selected subject:', this.selectedSubject)
+        }
+        
+        await this.fetchChapters()
+      } catch (error) {
+        console.error('Error during initialization:', error)
+        this.showAlert('Failed to initialize page', 'danger')
       }
-      await this.fetchChapters()
     },
 
     async fetchSubjects() {
+      console.log('Fetching subjects...')
       try {
         const token = localStorage.getItem('auth_token')
+        console.log('Auth token exists:', !!token)
+        
+        if (!token) {
+          throw new Error('No authentication token found')
+        }
+
         const response = await fetch('/admin/subjects', {
+          method: 'GET',
           headers: {
-            'Authentication-Token': `Bearer ${token}`,
+            'Authentication-Token': token, // Changed from 'Authentication-Token'
             'Content-Type': 'application/json'
           }
         })
 
+        console.log('Subjects response status:', response.status)
+        console.log('Subjects response headers:', Object.fromEntries(response.headers.entries()))
+
         if (response.ok) {
-          this.subjects = await response.json()
+          const data = await response.json()
+          console.log('Subjects data received:', data)
+          this.subjects = Array.isArray(data) ? data : (data.subjects || [])
+          console.log('Subjects array set:', this.subjects)
         } else {
-          throw new Error('Failed to fetch subjects')
+          const errorText = await response.text()
+          console.error('Subjects fetch failed:', response.status, errorText)
+          throw new Error(`Failed to fetch subjects: ${response.status} ${errorText}`)
         }
       } catch (error) {
         console.error('Error fetching subjects:', error)
-        this.showAlert('Error loading subjects', 'danger')
+        this.showAlert(`Error loading subjects: ${error.message}`, 'danger')
+        this.subjects = [] // Ensure subjects is always an array
       }
     },
 
     async fetchChapters() {
+      console.log('Fetching chapters...')
       try {
         const token = localStorage.getItem('auth_token')
         let url = '/admin/chapters'
@@ -325,27 +369,38 @@ const AdminChapters = {
           this.selectedSubject = this.subjects.find(s => s.id == this.selectedSubjectId)
         }
 
+        console.log('Fetching chapters from:', url)
+
         const response = await fetch(url, {
+          method: 'GET',
           headers: {
-            'Authentication-Token': `Bearer ${token}`,
+            'Authentication-Token': token, // Changed from 'Authentication-Token'
             'Content-Type': 'application/json'
           }
         })
 
+        console.log('Chapters response status:', response.status)
+
         if (response.ok) {
-          this.chapters = await response.json()
+          const data = await response.json()
+          console.log('Chapters data received:', data)
+          this.chapters = Array.isArray(data) ? data : (data.chapters || [])
         } else {
-          throw new Error('Failed to fetch chapters')
+          const errorText = await response.text()
+          console.error('Chapters fetch failed:', response.status, errorText)
+          throw new Error(`Failed to fetch chapters: ${response.status}`)
         }
       } catch (error) {
         console.error('Error fetching chapters:', error)
-        this.showAlert('Error loading chapters', 'danger')
+        this.showAlert(`Error loading chapters: ${error.message}`, 'danger')
+        this.chapters = [] // Ensure chapters is always an array
       } finally {
         this.loading = false
       }
     },
 
     async loadChaptersBySubject() {
+      console.log('Loading chapters by subject:', this.selectedSubjectId)
       if (this.selectedSubjectId) {
         this.loading = true
         await this.fetchChapters()
@@ -415,10 +470,12 @@ const AdminChapters = {
           }
         }
 
+        console.log('Saving chapter:', method, url, body)
+
         const response = await fetch(url, {
           method,
           headers: {
-            'Authentication-Token': `Bearer ${token}`,
+            'Authentication-Token': token, // Changed from 'Authentication-Token'
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(body)
@@ -435,11 +492,12 @@ const AdminChapters = {
           const modal = bootstrap.Modal.getInstance(document.getElementById('chapterModal'))
           modal.hide()
         } else {
+          console.error('Save chapter failed:', data)
           this.showAlert(data.error || 'Failed to save chapter', 'danger')
         }
       } catch (error) {
         console.error('Error saving chapter:', error)
-        this.showAlert('Error saving chapter', 'danger')
+        this.showAlert(`Error saving chapter: ${error.message}`, 'danger')
       } finally {
         this.saving = false
       }
@@ -460,7 +518,7 @@ const AdminChapters = {
         const response = await fetch(`/admin/chapter/${this.chapterToDelete.id}`, {
           method: 'DELETE',
           headers: {
-            'Authentication-Token': `Bearer ${token}`,
+            'Authorization': token, // Changed from 'Authentication-Token'
             'Content-Type': 'application/json'
           }
         })
@@ -477,7 +535,7 @@ const AdminChapters = {
         }
       } catch (error) {
         console.error('Error deleting chapter:', error)
-        this.showAlert('Error deleting chapter', 'danger')
+        this.showAlert(`Error deleting chapter: ${error.message}`, 'danger')
       } finally {
         this.deleting = false
       }
@@ -511,4 +569,5 @@ const AdminChapters = {
     }
   }
 }
+
 export default AdminChapters

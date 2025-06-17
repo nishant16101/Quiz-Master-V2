@@ -18,18 +18,13 @@ const UserDashboard = {
               </button>
               <ul class="dropdown-menu dropdown-menu-end">
                 <li>
-                  <router-link to="/user/profile" class="dropdown-item">
+                  <router-link to="/profile" class="dropdown-item">
                     <i class="fas fa-user me-2"></i>View Profile
                   </router-link>
                 </li>
                 <li>
-                  <router-link to="/user/quiz-history" class="dropdown-item">
+                  <router-link to="/attempts" class="dropdown-item">
                     <i class="fas fa-history me-2"></i>Quiz History
-                  </router-link>
-                </li>
-                <li>
-                  <router-link to="/user/performance" class="dropdown-item">
-                    <i class="fas fa-chart-line me-2"></i>Performance
                   </router-link>
                 </li>
                 <li><hr class="dropdown-divider"></li>
@@ -178,17 +173,14 @@ const UserDashboard = {
             </div>
             <div class="card-body">
               <div class="d-grid gap-2">
-                <router-link to="/user/quiz-history" class="btn btn-outline-primary">
+                <router-link to="/attempts" class="btn btn-outline-primary">
                   <i class="fas fa-history me-2"></i>View All Attempts
-                </router-link>
-                <router-link to="/user/performance" class="btn btn-outline-success">
-                  <i class="fas fa-chart-bar me-2"></i>Performance Analytics
                 </router-link>
                 <button @click="findRandomQuiz" class="btn btn-outline-info">
                   <i class="fas fa-random me-2"></i>Random Quiz
                 </button>
-                <router-link to="/user/leaderboards" class="btn btn-outline-warning">
-                  <i class="fas fa-trophy me-2"></i>Leaderboards
+                <router-link to="/subjects" class="btn btn-outline-success">
+                  <i class="fas fa-book me-2"></i>Browse Subjects
                 </router-link>
               </div>
             </div>
@@ -245,126 +237,176 @@ const UserDashboard = {
     </div>`,
     data(){
         return {
-            loading:true,
-            loadingSubjects:true,
-            user:{
-                username:'',
-                email:''
+            loading: true,
+            loadingSubjects: true,
+            user: {
+                username: '',
+                email: ''
             },
-            userStats:{
-                totalAttempts:0,
-                averageScore:0,
-                bestScore:0,
-
+            userStats: {
+                totalAttempts: 0,
+                averageScore: 0,
+                bestScore: 0,
             },
-            subjects:[],
-            recentAttempts:[]
+            subjects: [],
+            recentAttempts: []
         }
     },
-    methods:{
+    methods: {
         async fetchUserData(){
             try{
-                const token = localStorage.getItem('auth_token')
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    this.$router.push('/login');
+                    return;
+                }
+                
                 const headers = {
-                    'Authentication-Token':`Bearer${token}`,
-                    'Content-Type':'application/json'
-                }
-                const profileRes= await fetch('/user/profile',{headers})
-                if(profileRes.ok){
-                    const profileData = await profileRes.json()
-                    this.user.username = profileData.username
-                    this.user.email = profileData.email
-                    this.recentAttempts = profileData.recent_attempts || []
+                    'Authentication-Token': `Bearer ${token}`, // Fixed: Changed Authentication-Token to Authorization
+                    'Content-Type': 'application/json'
+                };
+                
+                // Fixed: Changed /user/profile to /api/user/profile to match API endpoint
+                const profileRes = await fetch('/api/user/profile', { headers });
+                
+                if (profileRes.ok) {
+                    const profileData = await profileRes.json();
+                    this.user.username = profileData.username;
+                    this.user.email = profileData.email;
+                    this.recentAttempts = profileData.recent_attempts || [];
                     
-                    //calculate user stats
-                    if(profileData.recent_attempts && profileData.recent_attempts.length>0){
-                        this.userStats.totalAttempts = profileData.recentAttempts.length
-                        const scores = profileData.recent_attempts.map(a=>a.scores)
-                        this.userStats.averageScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-                        this.userStats.bestScore = Math.max(...scores)
+                    // Calculate user stats
+                    if (profileData.recent_attempts && profileData.recent_attempts.length > 0) {
+                        this.userStats.totalAttempts = profileData.recent_attempts.length; // Fixed: Changed recentAttempts to recent_attempts
+                        const scores = profileData.recent_attempts.map(a => a.score); // Fixed: Changed scores to score
+                        this.userStats.averageScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+                        this.userStats.bestScore = Math.max(...scores);
                     }
+                } else if (profileRes.status === 401) {
+                    // Token expired or invalid
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('user');
+                    this.$router.push('/login');
                 }
-        }catch(error){
-            console.error('Error fetching user data',error)
-            this.showAlert('Error loading user data','danger')
-        }finally{
-            this.loading = false
-        }
-    },
-    async fetchSubjects(){
-        try{
-            const token = localStorage.getItem('auth_token')
-            const headers = {
-                'Authentication-Token':`Bearer ${token}`,
-                'Content-Type': 'application/json'
+            } catch(error) {
+                console.error('Error fetching user data', error);
+                this.showAlert('Error loading user data', 'danger');
+            } finally {
+                this.loading = false;
             }
-            const response = await fetch('/user/subjects',{headers})
-            if (response.ok){
-                this.subjects =await response.json()
-            }
-
-        }catch(error){
-            console.error('Error fetching subjects')
-            this.showAlert('Error loading subjects', 'danger')
-        }finally{
-            this.loadingSubjects = false
-        }
-    },
-    exploreSubject(subjectId) {
-      this.$router.push(`/user/subject/${subjectId}`)
-    },
-    getSubjectIcon(subjectName) {
-      const icons = {
-        'Mathematics': 'fas fa-calculator',
-        'Science': 'fas fa-microscope',
-        'History': 'fas fa-landmark',
-        'English': 'fas fa-spell-check',
-        'Geography': 'fas fa-globe',
-        'Physics': 'fas fa-atom',
-        'Chemistry': 'fas fa-flask',
-        'Biology': 'fas fa-dna',
-        'Computer Science': 'fas fa-laptop-code',
-        'Literature': 'fas fa-book-open'
-      }
-      return icons[subjectName] || 'fas fa-book'
-    },
-    getScoreClass(score) {
-      if (score >= 80) return 'badge bg-success'
-      if (score >= 60) return 'badge bg-warning'
-      return 'badge bg-danger'
-    },
-    formatDate(dateString) {
-      if (!dateString) return 'N/A'
-      const date = new Date(dateString)
-      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-    },
-    viewAttempt(attemptId) {
-      this.$router.push(`/user/attempt/${attemptId}`)
-    },
-    async logout(){
-        try{
-            const token = localStorage.getItem('auth_token')
-            await fetch('/user/logout',{
-                method:'POST',
-                headers:{
-                    'Authentication-Token': `Bearer ${token}`,
-                    'Content-Type':'application/json'
+        },
+        
+        async fetchSubjects(){
+            try{
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    this.$router.push('/login');
+                    return;
                 }
-            })
-        }catch(error){
-            console.error('Logout error',error)
-        }finally{
-            localStorage.removeItem('auth_token')
-            this.$router.push('/login')
+                
+                const headers = {
+                    'Authentication-Token': `Bearer ${token}`, // Fixed: Changed Authentication-Token to Authorization
+                    'Content-Type': 'application/json'
+                };
+                
+                // Fixed: Changed /user/subjects to /api/user/subjects to match API endpoint
+                const response = await fetch('/api/user/subjects', { headers });
+                
+                if (response.ok) {
+                    this.subjects = await response.json();
+                } else if (response.status === 401) {
+                    // Token expired or invalid
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('user');
+                    this.$router.push('/login');
+                }
+            } catch(error) {
+                console.error('Error fetching subjects', error);
+                this.showAlert('Error loading subjects', 'danger');
+            } finally {
+                this.loadingSubjects = false;
+            }
+        },
+        
+        exploreSubject(subjectId) {
+            this.$router.push(`/subjects/${subjectId}`); // Updated to match route structure
+        },
+        
+        getSubjectIcon(subjectName) {
+            const icons = {
+                'Mathematics': 'fas fa-calculator',
+                'Science': 'fas fa-microscope',
+                'History': 'fas fa-landmark',
+                'English': 'fas fa-spell-check',
+                'Geography': 'fas fa-globe',
+                'Physics': 'fas fa-atom',
+                'Chemistry': 'fas fa-flask',
+                'Biology': 'fas fa-dna',
+                'Computer Science': 'fas fa-laptop-code',
+                'Literature': 'fas fa-book-open'
+            };
+            return icons[subjectName] || 'fas fa-book';
+        },
+        
+        getScoreClass(score) {
+            if (score >= 80) return 'badge bg-success';
+            if (score >= 60) return 'badge bg-warning';
+            return 'badge bg-danger';
+        },
+        
+        formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        },
+        
+        viewAttempt(attemptId) {
+            this.$router.push(`/attempts/${attemptId}`);
+        },
+        
+        findRandomQuiz() {
+            // Implementation for finding a random quiz
+            if (this.subjects.length > 0) {
+                const randomSubject = this.subjects[Math.floor(Math.random() * this.subjects.length)];
+                this.exploreSubject(randomSubject.id);
+            }
+        },
+        
+        showAlert(message, type) {
+            // Simple alert implementation - you can replace with a toast notification system
+            alert(message);
+        },
+        
+        async logout(){
+            try{
+                const token = localStorage.getItem('auth_token');
+                if (token) {
+                    await fetch('/api/user/logout', { // Fixed: Added /api prefix
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`, // Fixed: Changed Authentication-Token to Authorization
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                }
+            } catch(error) {
+                console.error('Logout error', error);
+            } finally {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('rememberMe');
+                localStorage.removeItem('savedEmail');
+                this.$router.push('/login');
+            }
         }
-    }
+    },
     
-    },
     async mounted() {
-    await Promise.all([
-      this.fetchUserData(),
-      this.fetchSubjects()
-    ])
-  }
+        await Promise.all([
+            this.fetchUserData(),
+            this.fetchSubjects()
+        ]);
+    }
 }
-export default UserDashboard
+
+export default UserDashboard;

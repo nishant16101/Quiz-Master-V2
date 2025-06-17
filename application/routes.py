@@ -196,6 +196,7 @@ def delete_chapter(chapter_id):
     db.session.commit()
     return {"message": "Chapter deleted"}
 
+
 # ===== QUIZ CRUD =====
 
 # Create Quiz
@@ -204,7 +205,11 @@ def delete_chapter(chapter_id):
 @roles_required('admin')
 def create_quiz(chapter_id):
     data = request.json
-    quiz = Quiz(name=data['name'], chapter_id=chapter_id)
+    quiz = Quiz(
+        title=data['name'],  # Frontend sends 'name', but model uses 'title'
+        duration=data.get('duration', 30),  # Default 30 minutes if not provided
+        chapter_id=chapter_id
+    )
     db.session.add(quiz)
     db.session.commit()
     return {"message": "Quiz created", "id": quiz.id}
@@ -217,7 +222,9 @@ def get_all_quizzes():
     quizzes = Quiz.query.all()
     return jsonify([{
         "id": quiz.id,
-        "name": quiz.name,
+        "name": quiz.title,  # Map 'title' to 'name' for frontend
+        "title": quiz.title,
+        "duration": quiz.duration,
         "chapter_id": quiz.chapter_id,
         "chapter_name": quiz.chapter.name if hasattr(quiz, 'chapter') else None,
         "subject_name": quiz.chapter.subject.name if hasattr(quiz, 'chapter') and hasattr(quiz.chapter, 'subject') else None,
@@ -232,7 +239,9 @@ def get_quizzes_by_chapter(chapter_id):
     quizzes = Quiz.query.filter_by(chapter_id=chapter_id).all()
     return jsonify([{
         "id": quiz.id,
-        "name": quiz.name,
+        "name": quiz.title,  # Map 'title' to 'name' for frontend
+        "title": quiz.title,
+        "duration": quiz.duration,
         "chapter_id": quiz.chapter_id,
         "questions_count": len(quiz.questions) if hasattr(quiz, 'questions') else 0
     } for quiz in quizzes])
@@ -245,15 +254,23 @@ def get_quiz(quiz_id):
     quiz = Quiz.query.get_or_404(quiz_id)
     return jsonify({
         "id": quiz.id,
-        "name": quiz.name,
+        "name": quiz.title,  # Map 'title' to 'name' for frontend
+        "title": quiz.title,
+        "duration": quiz.duration,
         "chapter_id": quiz.chapter_id,
         "chapter_name": quiz.chapter.name if hasattr(quiz, 'chapter') else None,
         "subject_name": quiz.chapter.subject.name if hasattr(quiz, 'chapter') and hasattr(quiz.chapter, 'subject') else None,
         "questions": [{
             "id": question.id,
-            "text": question.text,
-            "options": question.options,
-            "correct_answer": question.correct_answer
+            "text": question.content,  # Map 'content' to 'text' for frontend
+            "content": question.content,
+            "options": [
+                question.option_a,
+                question.option_b, 
+                question.option_c,
+                question.option_d
+            ],
+            "correct_answer": ['A', 'B', 'C', 'D'].index(question.correct_answer) if question.correct_answer in ['A', 'B', 'C', 'D'] else 0
         } for question in quiz.questions] if hasattr(quiz, 'questions') else []
     })
 
@@ -264,9 +281,13 @@ def get_quiz(quiz_id):
 def update_quiz(quiz_id):
     quiz = Quiz.query.get_or_404(quiz_id)
     data = request.json
-    quiz.name = data.get('name', quiz.name)
+    
+    quiz.title = data.get('name', quiz.title)  # Frontend sends 'name'
+    if 'duration' in data:
+        quiz.duration = data['duration']
     if 'chapter_id' in data:
         quiz.chapter_id = data['chapter_id']
+    
     db.session.commit()
     return {"message": "Quiz updated"}
 
@@ -290,32 +311,24 @@ def add_question_to_quiz(quiz_id):
     data = request.get_json()
     quiz = Quiz.query.get_or_404(quiz_id)
     
+    # Convert frontend format to your model format
+    options = data['options']  # Should be a list like ['Option A', 'Option B', 'Option C', 'Option D']
+    correct_index = data['correct_answer']  # Index (0, 1, 2, 3)
+    correct_letter = ['A', 'B', 'C', 'D'][correct_index]  # Convert to letter
+    
     question = Question(
-        text=data['text'],
-        options=data['options'],  # Should be a list
-        correct_answer=data['correct_answer'],
-        quiz=quiz
+        content=data['text'],  # Frontend sends 'text', model uses 'content'
+        option_a=options[0] if len(options) > 0 else '',
+        option_b=options[1] if len(options) > 1 else '',
+        option_c=options[2] if len(options) > 2 else '',
+        option_d=options[3] if len(options) > 3 else '',
+        correct_answer=correct_letter,
+        quiz_id=quiz_id
     )
+    
     db.session.add(question)
     db.session.commit()
     return jsonify({"message": "Question added successfully", "question_id": question.id}), 201
-
-# Read All Questions
-@app.route('/admin/questions', methods=['GET'])
-@auth_required('token')
-@roles_required('admin')
-def get_all_questions():
-    questions = Question.query.all()
-    return jsonify([{
-        "id": question.id,
-        "text": question.text,
-        "options": question.options,
-        "correct_answer": question.correct_answer,
-        "quiz_id": question.quiz_id,
-        "quiz_name": question.quiz.name if hasattr(question, 'quiz') else None,
-        "chapter_name": question.quiz.chapter.name if hasattr(question, 'quiz') and hasattr(question.quiz, 'chapter') else None,
-        "subject_name": question.quiz.chapter.subject.name if hasattr(question, 'quiz') and hasattr(question.quiz, 'chapter') and hasattr(question.quiz.chapter, 'subject') else None
-    } for question in questions])
 
 # Read Questions by Quiz
 @app.route('/admin/quiz/<int:quiz_id>/questions', methods=['GET'])
@@ -325,28 +338,17 @@ def get_questions_by_quiz(quiz_id):
     questions = Question.query.filter_by(quiz_id=quiz_id).all()
     return jsonify([{
         "id": question.id,
-        "text": question.text,
-        "options": question.options,
-        "correct_answer": question.correct_answer,
+        "text": question.content,
+        "content": question.content,
+        "options": [
+            question.option_a,
+            question.option_b,
+            question.option_c,
+            question.option_d
+        ],
+        "correct_answer": ['A', 'B', 'C', 'D'].index(question.correct_answer) if question.correct_answer in ['A', 'B', 'C', 'D'] else 0,
         "quiz_id": question.quiz_id
     } for question in questions])
-
-# Read Single Question
-@app.route('/admin/question/<int:question_id>', methods=['GET'])
-@auth_required('token')
-@roles_required('admin')
-def get_question(question_id):
-    question = Question.query.get_or_404(question_id)
-    return jsonify({
-        "id": question.id,
-        "text": question.text,
-        "options": question.options,
-        "correct_answer": question.correct_answer,
-        "quiz_id": question.quiz_id,
-        "quiz_name": question.quiz.name if hasattr(question, 'quiz') else None,
-        "chapter_name": question.quiz.chapter.name if hasattr(question, 'quiz') and hasattr(question.quiz, 'chapter') else None,
-        "subject_name": question.quiz.chapter.subject.name if hasattr(question, 'quiz') and hasattr(question.quiz, 'chapter') and hasattr(question.quiz.chapter, 'subject') else None
-    })
 
 # Update Question
 @app.route('/admin/question/<int:question_id>', methods=['PUT'])
@@ -356,11 +358,19 @@ def update_question(question_id):
     question = Question.query.get_or_404(question_id)
     data = request.json
     
-    question.text = data.get('text', question.text)
-    question.options = data.get('options', question.options)
-    question.correct_answer = data.get('correct_answer', question.correct_answer)
-    if 'quiz_id' in data:
-        question.quiz_id = data['quiz_id']
+    if 'text' in data:
+        question.content = data['text']
+    
+    if 'options' in data:
+        options = data['options']
+        question.option_a = options[0] if len(options) > 0 else question.option_a
+        question.option_b = options[1] if len(options) > 1 else question.option_b
+        question.option_c = options[2] if len(options) > 2 else question.option_c
+        question.option_d = options[3] if len(options) > 3 else question.option_d
+    
+    if 'correct_answer' in data:
+        correct_index = data['correct_answer']
+        question.correct_answer = ['A', 'B', 'C', 'D'][correct_index]
     
     db.session.commit()
     return {"message": "Question updated"}
@@ -373,7 +383,8 @@ def delete_question(question_id):
     question = Question.query.get_or_404(question_id)
     db.session.delete(question)
     db.session.commit()
-    return jsonify({"message": f"Question id {question_id} deleted successfully"}), 200
+    return {"message": "Question deleted"}
+    
 
 
 
