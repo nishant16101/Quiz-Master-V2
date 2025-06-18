@@ -130,7 +130,7 @@ const UserAttempts = {
         const token = localStorage.getItem('auth_token')
         const response = await fetch('/user/quiz-history', {
           headers: {
-            'Authentication-Token': `Bearer ${token}`,
+            'Authentication-Token': token,
             'Content-Type': 'application/json'
           }
         })
@@ -152,7 +152,7 @@ const UserAttempts = {
         const token = localStorage.getItem('auth_token')
         const response = await fetch('/user/performance', {
           headers: {
-            'Authentication-Token': `Bearer ${token}`,
+            'Authentication-Token': token,
             'Content-Type': 'application/json'
           }
         })

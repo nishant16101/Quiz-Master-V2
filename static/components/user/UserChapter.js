@@ -64,7 +64,7 @@ const UserChapter = {
               </div>
               
               <div class="mt-auto">
-                <router-link :to="'/user/quiz/' + quiz.id" class="btn btn-success w-100">
+                <router-link :to="'/quiz/' + quiz.id" class="btn btn-success w-100">
                   <i class="fas fa-play"></i> 
                   {{ quiz.user_attempts?.length > 0 ? 'Retake Quiz' : 'Start Quiz' }}
                 </router-link>
@@ -88,7 +88,7 @@ const UserChapter = {
         const chapterId = this.$route.params.id
         const response = await fetch(`/user/chapter/${chapterId}`, {
           headers: {
-            'Authentication-Token': `Bearer ${token}`,
+            'Authentication-Token': token,
             'Content-Type': 'application/json'
           }
         })

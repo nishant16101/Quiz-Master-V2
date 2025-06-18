@@ -1,300 +1,220 @@
 const UserQuiz = {
-    template:`
-    <div class="container mt-4">
-      <div class="row">
-        <div class="col-12">
-          <!-- Quiz Header -->
-          <div v-if="!quizStarted" class="card">
-            <div class="card-body text-center">
-              <h2 class="card-title">{{ quiz.title }}</h2>
-              <p class="text-muted">{{ quiz.chapter }} - {{ quiz.subject }}</p>
-              <div class="row justify-content-center">
-                <div class="col-md-8">
-                  <div class="row">
-                    <div class="col-6">
-                      <div class="card bg-light">
-                        <div class="card-body">
-                          <h5 class="card-title">
-                            <i class="fas fa-clock"></i> Duration
-                          </h5>
-                          <p class="card-text">{{ quiz.duration }} minutes</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="col-6">
-                      <div class="card bg-light">
-                        <div class="card-body">
-                          <h5 class="card-title">
-                            <i class="fas fa-list"></i> Questions
-                          </h5>
-                          <p class="card-text">{{ quiz.questions?.length || 0 }} questions</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+    template: `
+        <div class="container mt-4">
+            <div v-if="loading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
                 </div>
-              </div>
-              <button @click="startQuiz" class="btn btn-success btn-lg mt-3">
-                <i class="fas fa-play"></i> Start Quiz
-              </button>
             </div>
-          </div>
-          
-          <!-- Quiz Questions -->
-          <div v-if="quizStarted && !showResults" class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h5 class="mb-0">{{ quiz.title }}</h5>
-              <div class="d-flex align-items-center">
-                <span class="badge bg-primary me-3">
-                  Question {{ currentQuestionIndex + 1 }} of {{ quiz.questions?.length }}
-                </span>
-                <div class="text-danger">
-                  <i class="fas fa-clock"></i> {{ formatTime(timeRemaining) }}
+
+            <div v-else-if="!quiz.questions || quiz.questions.length === 0" class="card">
+                <div class="card-body text-center">
+                    <h2 class="card-title">No Questions Available</h2>
+                    <p class="text-muted">This quiz does not have any questions yet.</p>
+                    <router-link :to="'/subject/' + quiz.subject_id" class="btn btn-primary mt-3">
+                        <i class="fas fa-arrow-left"></i> Back to Subject
+                    </router-link>
                 </div>
-              </div>
             </div>
-            <div class="card-body">
-              <div v-if="currentQuestion" class="question-container">
-                <h4 class="mb-4">{{ currentQuestion.content }}</h4>
-                <div class="options">
-                  <div v-for="(option, key) in currentQuestion.options" :key="key" class="mb-3">
-                    <div class="form-check">
-                      <input 
-                        class="form-check-input" 
-                        type="radio" 
-                        :name="'question_' + currentQuestion.id"
-                        :id="'option_' + currentQuestion.id + '_' + key"
-                        :value="key"
-                        v-model="answers[currentQuestion.id]"
-                      >
-                      <label class="form-check-label" :for="'option_' + currentQuestion.id + '_' + key">
-                        <strong>{{ key }}.</strong> {{ option }}
-                      </label>
+
+            <div v-else class="card">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">{{ quiz.title }}</h2>
+                    <p class="text-muted mb-0">{{ quiz.subject }} - {{ quiz.chapter }}</p>
+                    <div v-if="quiz.duration" class="text-info">
+                        <i class="fas fa-clock"></i> Duration: {{ quiz.duration }} minutes
                     </div>
-                  </div>
                 </div>
-              </div>
-              
-              <!-- Navigation -->
-              <div class="d-flex justify-content-between mt-4">
-                <button 
-                  @click="previousQuestion" 
-                  :disabled="currentQuestionIndex === 0"
-                  class="btn btn-secondary"
-                >
-                  <i class="fas fa-arrow-left"></i> Previous
-                </button>
-                
-                <div>
-                  <button 
-                    v-if="currentQuestionIndex < quiz.questions.length - 1"
-                    @click="nextQuestion" 
-                    class="btn btn-primary"
-                  >
-                    Next <i class="fas fa-arrow-right"></i>
-                  </button>
-                  
-                  <button 
-                    v-else
-                    @click="submitQuiz" 
-                    class="btn btn-success"
-                  >
-                    Submit Quiz <i class="fas fa-check"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Quiz Results -->
-          <div v-if="showResults" class="card">
-            <div class="card-header text-center">
-              <h3 class="mb-0">Quiz Results</h3>
-            </div>
-            <div class="card-body">
-              <div class="text-center mb-4">
-                <div class="row justify-content-center">
-                  <div class="col-md-8">
-                    <div class="row">
-                      <div class="col-4">
-                        <div class="card bg-success text-white">
-                          <div class="card-body">
-                            <h4>{{ results.score?.percentage }}%</h4>
-                            <small>Your Score</small>
-                          </div>
+                <div class="card-body">
+                    <form @submit.prevent="submitQuiz">
+                        <div v-for="(question, index) in quiz.questions" :key="question.id" class="mb-4 border p-3 rounded shadow-sm">
+                            <p class="fw-bold">Q{{ index + 1 }}. {{ question.content }}</p>
+                            <div v-for="(option, key) in question.options" :key="key" class="form-check">
+                                <input
+                                    class="form-check-input"
+                                    type="radio"
+                                    :name="'question_' + question.id"
+                                    :id="'q' + question.id + key"
+                                    :value="key"
+                                    v-model="userAnswers[question.id]"
+                                    required
+                                >
+                                <label class="form-check-label" :for="'q' + question.id + key">
+                                    <strong>{{ key }}.</strong> {{ option }}
+                                </label>
+                            </div>
                         </div>
-                      </div>
-                      <div class="col-4">
-                        <div class="card bg-info text-white">
-                          <div class="card-body">
-                            <h4>{{ results.score?.correct_answers }}</h4>
-                            <small>Correct Answers</small>
-                          </div>
+                        <button type="submit" class="btn btn-success mt-3">
+                            <i class="fas fa-check"></i> Submit Quiz
+                        </button>
+                    </form>
+
+                    <div v-if="results.score" class="mt-5 p-4 border rounded shadow-lg bg-light">
+                        <h4 class="text-center mb-4">Quiz Results</h4>
+                        <div class="row text-center mb-4">
+                            <div class="col-md-4">
+                                <div class="card bg-success text-white mb-2">
+                                    <div class="card-body py-2">
+                                        <h5 class="mb-0">{{ results.score.percentage }}%</h5>
+                                        <small>Your Score</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-info text-white mb-2">
+                                    <div class="card-body py-2">
+                                        <h5 class="mb-0">{{ results.score.correct_answers }}</h5>
+                                        <small>Correct Answers</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-primary text-white mb-2">
+                                    <div class="card-body py-2">
+                                        <h5 class="mb-0">{{ results.score.total_questions }}</h5>
+                                        <small>Total Questions</small>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                      </div>
-                      <div class="col-4">
-                        <div class="card bg-warning text-white">
-                          <div class="card-body">
-                            <h4>{{ results.score?.total_questions }}</h4>
-                            <small>Total Questions</small>
-                          </div>
+
+                        <h5 class="mb-3">Detailed Answers:</h5>
+                        <div v-for="(res, index) in results.results" :key="res.question_id" class="card mb-3">
+                            <div class="card-body">
+                                <p class="mb-1">
+                                    <strong>Q{{ index + 1 }}.</strong> {{ res.question }}
+                                    <span class="badge ms-2" :class="res.is_correct ? 'bg-success' : 'bg-danger'">
+                                        {{ res.is_correct ? 'Correct' : 'Incorrect' }}
+                                    </span>
+                                </p>
+                                <p class="mb-1">
+                                    Your Answer:
+                                    <span :class="!res.is_correct && res.user_answer ? 'text-danger' : 'text-success'">
+                                        {{ res.user_answer ? res.user_answer + '. ' + res.options[res.user_answer] : 'Not Answered' }}
+                                    </span>
+                                </p>
+                                <p class="mb-0">
+                                    Correct Answer: <span class="text-success">{{ res.correct_answer }}. {{ res.options[res.correct_answer] }}</span>
+                                </p>
+                            </div>
                         </div>
-                      </div>
+
+                        <div class="text-center mt-4">
+                            <router-link :to="'/subject/' + quiz.subject_id" class="btn btn-outline-primary me-3">
+                                <i class="fas fa-arrow-left"></i> Back to Subject
+                            </router-link>
+                            <button @click="retakeQuiz" class="btn btn-outline-secondary">
+                                <i class="fas fa-redo"></i> Retake Quiz
+                            </button>
+                        </div>
                     </div>
-                  </div>
                 </div>
-              </div>
-              
-              <!-- Detailed Results -->
-              <div v-if="results.results" class="mt-4">
-                <h5>Detailed Results:</h5>
-                <div v-for="(result, index) in results.results" :key="result.question_id" class="card mb-3">
-                  <div class="card-body">
-                    <h6 class="card-title">
-                      Question {{ index + 1 }}
-                      <span class="badge ms-2" :class="result.is_correct ? 'bg-success' : 'bg-danger'">
-                        {{ result.is_correct ? 'Correct' : 'Incorrect' }}
-                      </span>
-                    </h6>
-                    <p class="card-text">{{ result.question }}</p>
-                    <div class="row">
-                      <div class="col-md-6">
-                        <strong>Your Answer:</strong> 
-                        <span :class="result.is_correct ? 'text-success' : 'text-danger'">
-                          {{ result.user_answer ? result.user_answer + '. ' + result.options[result.user_answer] : 'Not answered' }}
-                        </span>
-                      </div>
-                      <div class="col-md-6">
-                        <strong>Correct Answer:</strong> 
-                        <span class="text-success">
-                          {{ result.correct_answer }}. {{ result.options[result.correct_answer] }}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="text-center mt-4">
-                <router-link :to="'/user/chapter/' + $route.params.chapterId" class="btn btn-primary me-3">
-                  <i class="fas fa-arrow-left"></i> Back to Chapter
-                </router-link>
-                <button @click="retakeQuiz" class="btn btn-outline-secondary">
-                  <i class="fas fa-redo"></i> Retake Quiz
-                </button>
-              </div>
             </div>
-          </div>
         </div>
-      </div>
-    </div>`,
-    data(){
-        return{
-            loading:true,
-            quiz:{},
-            quizStarted:false,
-            showResult:false,
-            currentQuestionIndex:0,
-            answers:{},
-            timeRemaining:0,
-            timer:null,
-            results:{}
+    `,
+    data() {
+        return {
+            loading: true,
+            quiz: {},
+            userAnswers: {}, // To store user's selected answers
+            results: {} // To store quiz results after submission
         }
     },
-    computed:{
-        currentQuestion(){
-            return this.quiz.question?.[this.currentQuestionIndex]
-        }
-    },
-    methods:{
-        async fetchQuiz(){
-            try{
-                const token = localStorage.getItem('auth_token')
-                const quizId = this.$route.params.id
-                const response = await fetch('/user/quiz/${quizId}/start',{
-                    headers:{
-                        'Authentication-Token':`Bearer${token}`,
-                        'Content-Type':'application/json'
+    methods: {
+        async fetchQuiz() {
+            this.loading = true;
+            try {
+                const token = localStorage.getItem('auth_token');
+                const quizId = this.$route.params.id;
+                const headers = {
+                    'Authentication-Token': token,
+                    'Content-Type': 'application/json'
+                };
+
+                console.log(`Fetching quiz with ID: ${quizId}`);
+                const response = await fetch(`/user/quiz/${quizId}`, { headers });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Failed to fetch quiz. Status:', response.status);
+                    console.error('Server response (non-OK):', errorText);
+                    // Attempt to parse as JSON in case it's a structured error, but fallback to text
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        console.error('Parsed error data:', errorData.error || errorData.message);
+                    } catch (parseError) {
+                        // Not JSON, just log the raw text
                     }
-                })
-                if (response.ok){
-                    this.quiz = await response.json()
-                    this.timeRemaining= this.quiz.duration*60
-                }else{
-                    console.error('Failed to fetch quiz')
+                    this.quiz = { questions: [] }; // Ensure quiz.questions is an array to prevent TypeError
+                    return;
                 }
-            }catch(error){
-                console.error('Error fetching the quiz',error)
-            }finally{
-                this.loading= false
-            }
-        },
-        startQuiz(){
-            this.quizStarted = true
-            this.startTimer()
-        },
-        startTimer(){
-            this.timer = setInterval(()=>{
-                this.timeRemaining --
-                if (this.timeRemaining <=0){
-                    this.submitQuiz()
+
+                const data = await response.json();
+                console.log('Successfully fetched quiz data:', data);
+                this.quiz = data;
+
+                // Defensive check for questions array
+                if (!Array.isArray(this.quiz.questions)) {
+                    console.error('Error: quiz.questions is not an array or is missing:', this.quiz.questions);
+                    this.quiz.questions = []; // Ensure it's an array to prevent errors in v-for
                 }
-            },1000)
-        },
-        nextQuestion(){
-            if(this.currentQuestionIndex < this.quiz.question.length-1){
-                this.currentQuestionIndex++
+
+                // Initialize userAnswers with empty values
+                this.quiz.questions.forEach(question => {
+                    this.userAnswers[question.id] = null;
+                });
+
+            } catch (error) {
+                console.error('Error in fetchQuiz during fetch or JSON parsing:', error);
+                this.quiz = { questions: [] }; // Ensure quiz.questions is an array even on error
+            } finally {
+                this.loading = false;
+                console.log('Loading state set to false. Final quiz object:', this.quiz);
             }
         },
-        previousQuestion(){
-            if(this.currentQuestionIndex >0){
-                this.currentQuestionIndex--
-            }
-        },
-        async submitQuiz(){
-            if(this.timer){
-                clearInterval(this.timer)
-            }
-            try{
-                const token = localStorage.getItem('auth_token')
-                const quizId = this.$route.params.id
-                const response = await fetch(`/user/quiz/${quizId}/submit`,{
-                    method:'POST',
-                    headers:{
-                        'Authentication-Token':`Bearer${token}`,
-                        'Content-Type':'application/json'
+        async submitQuiz() {
+            this.loading = true;
+            try {
+                const token = localStorage.getItem('auth_token');
+                const quizId = this.$route.params.id;
+
+                const response = await fetch(`/user/quiz/${quizId}/submit`, {
+                    method: 'POST',
+                    headers: {
+                        'Authentication-Token': token,
+                        'Content-Type': 'application/json'
                     },
-                    body:JSON.stringify({answers:this.answers})
+                    body: JSON.stringify({ answers: this.userAnswers }) // Use userAnswers
+                });
 
+                if (response.ok) {
+                    this.results = await response.json();
+                } else {
+                    const errorData = await response.json();
+                    console.error('Failed to submit Quiz. Status:', response.status, 'Error:', errorData.error);
                 }
-                )
-                if(response.ok){
-                    this.results = await response.json()
-                    this.showResult = true
-                }else{
-                    console.error('Failed to submit Quiz')
-                }
-            }catch(error){
-                console.error('Error submiting quiz',error)
+            } catch (error) {
+                console.error('Error submitting quiz:', error);
+            } finally {
+                this.loading = false;
             }
         },
-         retakeQuiz() {
-         this.quizStarted = false
-         this.showResults = false
-         this.currentQuestionIndex = 0
-         this.answers = {}
-         this.timeRemaining = this.quiz.duration * 60
-         this.results = {}
+        retakeQuiz() {
+            this.results = {}; // Clear previous results
+            this.userAnswers = {}; // Clear user answers
+            // Re-initialize userAnswers with empty values for the quiz questions
+            if (this.quiz.questions) {
+                this.quiz.questions.forEach(question => {
+                    this.userAnswers[question.id] = null;
+                });
+            }
+            // No need to fetchQuiz again if the quiz data itself hasn't changed.
+            // If you want a fresh set of questions or shuffled order, then call fetchQuiz().
         },
-
     },
-    async mounted(){
-        await this.fetchQuiz()
+    async mounted() {
+        await this.fetchQuiz();
     },
-    beforemount(){
-        if(this.timer){
-            clearInterval(this.timer)
-        }
-    }
+    // No beforeDestroy needed as there's no timer interval to clear anymore
 }
-export default UserQuiz
+export default UserQuiz;

@@ -23,7 +23,7 @@ import UserAttempts from './components/user/UserAttempts.js'
 
 // Authentication guard
 const requireAuth = (to, from, next) => {
-  const token = localStorage.getItem('auth_token') // Fixed: Changed 'token' to 'auth_token'
+  const token = localStorage.getItem('auth_token')
   if (token) {
     next()
   } else {
@@ -33,12 +33,12 @@ const requireAuth = (to, from, next) => {
 
 const requireAdmin = (to, from, next) => {
   const token = localStorage.getItem('auth_token');
-  const user = JSON.parse(localStorage.getItem('user') || '{}'); // Added fallback for user
+  const user = JSON.parse(localStorage.getItem('user') || '{}'); 
      
   if (token && user && user.roles && user.roles.includes('admin')) {
-    next(); // allow access
+    next();
   } else {
-    next('/login'); // redirect to login if not admin
+    next('/login');
   }
 };
 
@@ -48,89 +48,26 @@ const routes = [
   { path: '/register', component: Register },
      
   // Admin routes
-  {
-    path: '/admin/dashboard',
-    component: AdminDashboard,
-    beforeEnter: requireAdmin
-  },
-  {
-    path: '/admin/users',
-    component: AdminUsers,
-    beforeEnter: requireAdmin
-  },
-  {
-    path: '/admin/subjects',
-    component: AdminSubjects,
-    beforeEnter: requireAdmin
-  },
-  {
-    path: '/admin/chapters',
-    component: AdminChapters,
-    beforeEnter: requireAdmin
-  },
-  {
-    path: '/admin/quizzes',
-    component: AdminQuizzes,
-    beforeEnter: requireAdmin
-  },
-  {
-    path: '/admin/questions',
-    component: AdminQuestions,
-    beforeEnter: requireAdmin
-  },
-  // NEW ROUTE: Quiz-specific questions management
-  {
-    path: '/admin/quiz/:id/questions',
-    component: AdminQuestions,
-    beforeEnter: requireAdmin,
-    props: true  // This passes the route params as props to the component
-  },
+  { path: '/admin/dashboard', component: AdminDashboard, beforeEnter: requireAdmin },
+  { path: '/admin/users', component: AdminUsers, beforeEnter: requireAdmin },
+  { path: '/admin/subjects', component: AdminSubjects, beforeEnter: requireAdmin },
+  { path: '/admin/chapters', component: AdminChapters, beforeEnter: requireAdmin },
+  { path: '/admin/quizzes', component: AdminQuizzes, beforeEnter: requireAdmin },
+  { path: '/admin/questions', component: AdminQuestions, beforeEnter: requireAdmin },
+  { path: '/admin/quiz/:id/questions', component: AdminQuestions, beforeEnter: requireAdmin, props: true },
      
   // User routes
-  {
-    path: '/dashboard',
-    component: UserDashboard,
-    beforeEnter: requireAuth
-  },
-  {
-    path: '/profile',
-    component: UserProfile,
-    beforeEnter: requireAuth
-  },
-  {
-    path: '/subjects',
-    component: UserSubject,
-    beforeEnter: requireAuth
-  },
-  {
-    path: '/subjects/:id', // Fixed: Added parameter for subject ID
-    component: UserSubject,
-    beforeEnter: requireAuth,
-    props: true
-  },
-  {
-    path: '/chapter/:id',
-    component: UserChapter,
-    beforeEnter: requireAuth,
-    props: true
-  },
-  {
-    path: '/quiz/:id',
-    component: UserQuiz,
-    beforeEnter: requireAuth,
-    props: true
-  },
-  {
-    path: '/attempts',
-    component: UserAttempts,
-    beforeEnter: requireAuth
-  },
-  {
-    path: '/attempts/:id', // Fixed: Added parameter for attempt ID
-    component: UserAttempts,
-    beforeEnter: requireAuth,
-    props: true
-  }
+  { path: '/dashboard', component: UserDashboard, beforeEnter: requireAuth },
+  { path: '/profile', component: UserProfile, beforeEnter: requireAuth },
+  
+  // Corrected and new routes for subjects and chapters
+  { path: '/subjects', component: UserSubject, beforeEnter: requireAuth }, // This will list all subjects
+  { path: '/subject/:id', component: UserSubject, beforeEnter: requireAuth, props: true }, // This will show chapters for a subject
+  
+  { path: '/chapter/:id', component: UserChapter, beforeEnter: requireAuth, props: true },
+  { path: '/quiz/:id', component: UserQuiz, beforeEnter: requireAuth, props: true },
+  { path: '/attempts', component: UserAttempts, beforeEnter: requireAuth },
+  { path: '/attempts/:id', component: UserAttempts, beforeEnter: requireAuth, props: true }
 ]
 
 const router = new VueRouter({

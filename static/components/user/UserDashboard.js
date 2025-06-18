@@ -131,14 +131,14 @@ const UserDashboard = {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="attempt in recentAttempts" :key="attempt.attempt_id">
+                      <tr v-for="attempt in recentAttempts" :key="attempt.attempt_id || attempt.quiz_id">
                         <td>
-                          <strong>{{ attempt.quiz.title }}</strong>
+                          <strong>{{ attempt.quiz_title || attempt.quiz.title }}</strong>
                           <br>
-                          <small class="text-muted">{{ attempt.quiz.chapter }}</small>
+                          <small class="text-muted">{{ attempt.quiz.chapter || 'Chapter' }}</small>
                         </td>
                         <td>
-                          <span class="badge bg-primary">{{ attempt.quiz.subject }}</span>
+                          <span class="badge bg-primary">{{ attempt.subject || attempt.quiz.subject }}</span>
                         </td>
                         <td>
                           <span :class="getScoreClass(attempt.score)">
@@ -149,7 +149,7 @@ const UserDashboard = {
                           <small>{{ formatDate(attempt.date_attempted) }}</small>
                         </td>
                         <td>
-                          <button @click="viewAttempt(attempt.attempt_id)" 
+                          <button @click="viewAttempt(attempt.attempt_id || attempt.quiz_id)" 
                                   class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-eye"></i>
                           </button>
@@ -262,12 +262,12 @@ const UserDashboard = {
                 }
                 
                 const headers = {
-                    'Authentication-Token': `Bearer ${token}`, // Fixed: Changed Authentication-Token to Authorization
+                    'Authentication-Token': token, 
                     'Content-Type': 'application/json'
                 };
                 
-                // Fixed: Changed /user/profile to /api/user/profile to match API endpoint
-                const profileRes = await fetch('/api/user/profile', { headers });
+                // Fixed: Changed /api/user/profile to /user/profile to match API endpoint
+                const profileRes = await fetch('/user/profile', { headers });
                 
                 if (profileRes.ok) {
                     const profileData = await profileRes.json();
@@ -277,8 +277,8 @@ const UserDashboard = {
                     
                     // Calculate user stats
                     if (profileData.recent_attempts && profileData.recent_attempts.length > 0) {
-                        this.userStats.totalAttempts = profileData.recent_attempts.length; // Fixed: Changed recentAttempts to recent_attempts
-                        const scores = profileData.recent_attempts.map(a => a.score); // Fixed: Changed scores to score
+                        this.userStats.totalAttempts = profileData.recent_attempts.length;
+                        const scores = profileData.recent_attempts.map(a => a.score);
                         this.userStats.averageScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
                         this.userStats.bestScore = Math.max(...scores);
                     }
@@ -287,6 +287,8 @@ const UserDashboard = {
                     localStorage.removeItem('auth_token');
                     localStorage.removeItem('user');
                     this.$router.push('/login');
+                } else {
+                    throw new Error(`HTTP ${profileRes.status}: ${profileRes.statusText}`);
                 }
             } catch(error) {
                 console.error('Error fetching user data', error);
@@ -305,12 +307,12 @@ const UserDashboard = {
                 }
                 
                 const headers = {
-                    'Authentication-Token': `Bearer ${token}`, // Fixed: Changed Authentication-Token to Authorization
+                    'Authentication-Token':token, 
                     'Content-Type': 'application/json'
                 };
                 
-                // Fixed: Changed /user/subjects to /api/user/subjects to match API endpoint
-                const response = await fetch('/api/user/subjects', { headers });
+                // Fixed: Changed /api/user/subjects to /user/subjects to match API endpoint
+                const response = await fetch('/user/subjects', { headers });
                 
                 if (response.ok) {
                     this.subjects = await response.json();
@@ -319,6 +321,8 @@ const UserDashboard = {
                     localStorage.removeItem('auth_token');
                     localStorage.removeItem('user');
                     this.$router.push('/login');
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
             } catch(error) {
                 console.error('Error fetching subjects', error);
@@ -329,8 +333,8 @@ const UserDashboard = {
         },
         
         exploreSubject(subjectId) {
-            this.$router.push(`/subjects/${subjectId}`); // Updated to match route structure
-        },
+      this.$router.push(`/subject/${subjectId}`);
+      },
         
         getSubjectIcon(subjectName) {
             const icons = {
@@ -381,10 +385,10 @@ const UserDashboard = {
             try{
                 const token = localStorage.getItem('auth_token');
                 if (token) {
-                    await fetch('/api/user/logout', { // Fixed: Added /api prefix
+                    await fetch('/user/logout', { // Fixed: Removed /api prefix to match backend route
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${token}`, // Fixed: Changed Authentication-Token to Authorization
+                            'Authentication-Token':token, 
                             'Content-Type': 'application/json'
                         }
                     });

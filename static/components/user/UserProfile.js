@@ -311,7 +311,7 @@ const UserProfile = {
         const token = localStorage.getItem('auth_token')
         const response = await fetch('/user/profile', {
           headers: {
-            'Authentication-Token': `Bearer ${token}`,
+            'Authentication-Token': token,
             'Content-Type': 'application/json'
           }
         })
@@ -413,7 +413,7 @@ const UserProfile = {
         const response = await fetch('/user/profile', {
           method: 'PUT',
           headers: {
-            'Authentication-Token': `Bearer ${token}`,
+            'Authentication-Token': token,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(updateData)
@@ -454,7 +454,7 @@ const UserProfile = {
         const response = await fetch('/user/profile', {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authentication-Token': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         })
