@@ -1,8 +1,9 @@
 from flask import current_app as app,jsonify,request,render_template
-from flask_security import auth_required,roles_required,current_user,roles_accepted,login_user,logout_user
+from flask_security import auth_required,roles_required,current_user,roles_accepted,login_user,logout_user,hash_password
 from application.models import User,QuizAttempt,Subject,Chapter,Quiz,Question
 from werkzeug.security import check_password_hash, generate_password_hash
 from application.database import db
+
 from flask_security.utils import verify_and_update_password
 
 from datetime import datetime
@@ -393,7 +394,7 @@ def user_register():
     if User.query.filter_by(user_name=data['user_name']).first():
         return jsonify({"error": "Username already exist"}), 409
 
-    hashed_password = generate_password_hash(data['password'])
+    hashed_password = hash_password(data['password'])
     user = User(email=data['email'], user_name=data['user_name'], password=hashed_password)
     db.session.add(user)
     db.session.commit()
