@@ -4,6 +4,7 @@ from application.models import User,QuizAttempt,Subject,Chapter,Quiz,Question
 from werkzeug.security import check_password_hash, generate_password_hash
 from application.database import db
 from flask_security.utils import verify_and_update_password
+
 from datetime import datetime
 import bcrypt
 from app import app
@@ -389,11 +390,11 @@ def user_register():
         return jsonify({"error": "Email already exist"}), 409
     
     # Check if username is existing
-    if User.query.filter_by(user_name=data['username']).first():
+    if User.query.filter_by(user_name=data['user_name']).first():
         return jsonify({"error": "Username already exist"}), 409
 
     hashed_password = generate_password_hash(data['password'])
-    user = User(email=data['email'], user_name=data['username'], password=hashed_password)
+    user = User(email=data['email'], user_name=data['user_name'], password=hashed_password)
     db.session.add(user)
     db.session.commit()
     return jsonify({"message": "User registered successfully!"}), 201
@@ -405,8 +406,8 @@ def user_login():
     user = User.query.filter_by(email=data.get('email')).first()
     
     
-    if verify_and_update_password(data.get('password'), user):
-        db.session.commit() # Commit the change if the password hash was updated
+    if user and verify_and_update_password(data.get('password'), user):
+        db.session.commit() 
             
         login_user(user, remember=data.get('rememberMe', False))
         return jsonify({

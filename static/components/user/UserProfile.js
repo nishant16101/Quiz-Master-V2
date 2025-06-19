@@ -454,7 +454,7 @@ const UserProfile = {
         const response = await fetch('/user/profile', {
           method: 'DELETE',
           headers: {
-            'Authentication-Token': `Bearer ${token}`,
+            'Authentication-Token': token,
             'Content-Type': 'application/json'
           }
         })

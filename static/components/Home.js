@@ -176,7 +176,7 @@ const Home = {
   },
   computed: {
     isAuthenticated() {
-      return !!localStorage.getItem('token')
+      return !!localStorage.getItem('auth_token')
     },
     userRole() {
       const user = JSON.parse(localStorage.getItem('user') || '{}')
@@ -200,7 +200,7 @@ const Home = {
           headers: {
             'Content-Type': 'application/json',
             // Add auth header if needed
-            ...(localStorage.getItem('token') && {
+            ...(localStorage.getItem('auth_token') && {
               'Authorization': `Bearer ${localStorage.getItem('token')}`
             })
           }

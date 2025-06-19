@@ -1,4 +1,4 @@
-export default{
+export default {
   template: `
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
       <div class="container-fluid">
@@ -92,15 +92,18 @@ export default{
       return !!localStorage.getItem('auth_token')
     },
     isAdmin() {
-      return localStorage.getItem('role') === 'admin'
+      // Fixed: Get role from user object instead of separate role key
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
+      return user.roles && user.roles.includes('admin')
     }
   },
   methods: {
     async logout() {
       try {
-        const token = localStorage.getItem('aut_token')
+        // Fixed: Correct token key and API endpoint
+        const token = localStorage.getItem('auth_token')
         if (token) {
-          await fetch('/user/logout', {
+          await fetch('/api/logout', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -111,14 +114,25 @@ export default{
       } catch (error) {
         console.error('Logout error:', error)
       } finally {
-        localStorage.removeItem('token')
+        // Fixed: Clear all auth-related data
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('user')
         localStorage.removeItem('role')
         localStorage.removeItem('userName')
-        this.$router.push('/')
+        localStorage.removeItem('token') // Remove this too if it exists
+        localStorage.removeItem('rememberMe')
+        localStorage.removeItem('savedEmail')
+        
+        // Force reactive update
+        this.userName = ''
+        
+        // Redirect to home
+        this.$router.push('/').catch(() => {})
       }
     },
     loadUserInfo() {
-      this.userName = localStorage.getItem('userName') || ''
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
+      this.userName = user.user_name || user.name || localStorage.getItem('userName') || ''
     }
   },
   mounted() {
