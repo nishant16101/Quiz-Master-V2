@@ -1,6 +1,6 @@
 const UserDashboard = {
     template:`
-    <div class="container-fluid">
+<div class="container-fluid">
       <!-- Header with Profile Button -->
       <div class="row mb-4">
         <div class="col-12">
@@ -98,90 +98,35 @@ const UserDashboard = {
         </div>
       </div>
 
-      <!-- Recent Activity & Quick Actions Row -->
+      <!-- Quick Actions -->
       <div class="row mb-4">
-        <!-- Recent Quiz Attempts -->
-        <div class="col-lg-8 mb-4">
-          <div class="card h-100">
-            <div class="card-header bg-light">
-              <h5 class="card-title mb-0">
-                <i class="fas fa-clock text-primary me-2"></i>Recent Quiz Attempts
-              </h5>
-            </div>
-            <div class="card-body">
-              <div v-if="loading" class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-              </div>
-              <div v-else-if="recentAttempts.length === 0" class="text-center py-4 text-muted">
-                <i class="fas fa-clipboard-list fa-3x mb-3 opacity-50"></i>
-                <p>No quiz attempts yet. Start your first quiz!</p>
-              </div>
-              <div v-else>
-                <div class="table-responsive">
-                  <table class="table table-hover">
-                    <thead class="table-light">
-                      <tr>
-                        <th>Quiz</th>
-                        <th>Subject</th>
-                        <th>Score</th>
-                        <th>Date</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="attempt in recentAttempts" :key="attempt.attempt_id || attempt.quiz_id">
-                        <td>
-                          <strong>{{ attempt.quiz_title || attempt.quiz.title }}</strong>
-                          <br>
-                          <small class="text-muted">{{ attempt.quiz.chapter || 'Chapter' }}</small>
-                        </td>
-                        <td>
-                          <span class="badge bg-primary">{{ attempt.subject || attempt.quiz.subject }}</span>
-                        </td>
-                        <td>
-                          <span :class="getScoreClass(attempt.score)">
-                            {{ attempt.score }}%
-                          </span>
-                        </td>
-                        <td>
-                          <small>{{ formatDate(attempt.date_attempted) }}</small>
-                        </td>
-                        <td>
-                          <button @click="viewAttempt(attempt.attempt_id || attempt.quiz_id)" 
-                                  class="btn btn-sm btn-outline-primary">
-                            <i class="fas fa-eye"></i>
-                          </button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="col-lg-4 mb-4">
-          <div class="card h-100">
+        <div class="col-12">
+          <div class="card">
             <div class="card-header bg-light">
               <h5 class="card-title mb-0">
                 <i class="fas fa-bolt text-warning me-2"></i>Quick Actions
               </h5>
             </div>
             <div class="card-body">
-              <div class="d-grid gap-2">
-                <router-link to="/attempts" class="btn btn-outline-primary">
-                  <i class="fas fa-history me-2"></i>View All Attempts
-                </router-link>
-                <button @click="findRandomQuiz" class="btn btn-outline-info">
-                  <i class="fas fa-random me-2"></i>Random Quiz
-                </button>
-                <router-link to="/subjects" class="btn btn-outline-success">
-                  <i class="fas fa-book me-2"></i>Browse Subjects
-                </router-link>
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <router-link to="/attempts" class="btn btn-outline-primary btn-lg w-100 py-3">
+                    <i class="fas fa-history me-2 fa-lg"></i>
+                    <div>View All Attempts</div>
+                  </router-link>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <button @click="findRandomQuiz" class="btn btn-outline-info btn-lg w-100 py-3">
+                    <i class="fas fa-random me-2 fa-lg"></i>
+                    <div>Random Quiz</div>
+                  </button>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <router-link to="/subjects" class="btn btn-outline-success btn-lg w-100 py-3">
+                    <i class="fas fa-book me-2 fa-lg"></i>
+                    <div>Browse Subjects</div>
+                  </router-link>
+                </div>
               </div>
             </div>
           </div>

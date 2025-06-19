@@ -51,69 +51,7 @@ const UserAttempts = {
         </div>
       </div>
       
-      <!-- Quiz History -->
-      <div class="row">
-        <div class="col-12">
-          <div class="card">
-            <div class="card-header">
-              <h5 class="card-title mb-0">Recent Quiz Attempts</h5>
-            </div>
-            <div class="card-body">
-              <div v-if="loadingHistory" class="text-center">
-                <div class="spinner-border" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-              </div>
-              <div v-else-if="history.length === 0" class="text-center text-muted">
-                <i class="fas fa-history fa-3x mb-3"></i>
-                <p>No quiz attempts yet</p>
-                <router-link to="/user/subjects" class="btn btn-primary">
-                  <i class="fas fa-play"></i> Take Your First Quiz
-                </router-link>
-              </div>
-              <div v-else class="table-responsive">
-                <table class="table table-hover">
-                  <thead>
-                    <tr>
-                      <th>Quiz</th>
-                      <th>Subject</th>
-                      <th>Chapter</th>
-                      <th>Score</th>
-                      <th>Date</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="attempt in history" :key="attempt.attempt_id">
-                      <td>
-                        <strong>{{ attempt.quiz.title }}</strong>
-                      </td>
-                      <td>
-                        <span class="badge bg-primary">{{ attempt.quiz.subject }}</span>
-                      </td>
-                      <td>{{ attempt.quiz.chapter }}</td>
-                      <td>
-                        <span class="badge" :class="getScoreBadgeClass(attempt.score)">
-                          {{ attempt.score }}%
-                        </span>
-                      </td>
-                      <td>{{ formatDate(attempt.date_attempted) }}</td>
-                      <td>
-                        <router-link 
-                          :to="'/user/quiz/' + attempt.quiz.id" 
-                          class="btn btn-sm btn-outline-primary"
-                        >
-                          <i class="fas fa-redo"></i> Retake
-                        </router-link>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      
     </div>
   `,
   data() {

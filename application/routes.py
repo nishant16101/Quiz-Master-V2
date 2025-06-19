@@ -156,7 +156,6 @@ def get_chapters_by_subject(subject_id):
         "quizzes_count": len(chapter.quizzes) if hasattr(chapter, 'quizzes') else 0
     } for chapter in chapters])
 
-# Read Single Chapter
 @app.route('/admin/chapter/<int:chapter_id>', methods=['GET'])
 @auth_required('token')
 @roles_required('admin')
@@ -400,29 +399,28 @@ def user_register():
     return jsonify({"message": "User registered successfully!"}), 201
 
 #user login
-@app.route('/api/login', methods=['POST'])
+@app.route('/api/login',methods=['POST'])
 def user_login():
     data = request.json
-    user = User.query.filter_by(email=data['email']).first()
-
-    if verify_and_update_password(data['password'], user):
-        login_user(user)
-
-        
-        token = user.get_auth_token()
-
+    user = User.query.filter_by(email=data.get('email')).first()
+    
+    
+    if verify_and_update_password(data.get('password'), user):
+        db.session.commit() # Commit the change if the password hash was updated
+            
+        login_user(user, remember=data.get('rememberMe', False))
         return jsonify({
-            "message": "Login successful",
-            "auth_token": token,  # ✅ Include this
+            "message": "Login successful!",
+            "auth_token": user.get_auth_token(),
             "user": {
                 "id": user.id,
-                "email": user.email,
                 "username": user.user_name,
-                "roles": [role.name for role in user.roles] if user.roles else []
+                "email": user.email,
+                "roles": [role.name for role in user.roles]
             }
-        }), 200
+        })
+    return jsonify({"error": "Invalid credentials"}), 401
 
-    return jsonify({"message": "Invalid credentials"}), 401
 #user logout
 @app.route('/user/logout', methods=['POST'])
 @auth_required('token')
@@ -560,30 +558,65 @@ def get_user_subject(subject_id):
 @app.route('/user/chapter/<int:chapter_id>', methods=['GET'])
 @auth_required('token')
 def get_user_chapter(chapter_id):
-    chapter = Chapter.query.get_or_404(chapter_id)
-    quizzes_data = []
-    for quiz in chapter.quizzes:
-        user_attempts_for_quiz = QuizAttempt.query.filter_by(user_id=current_user.id, quiz_id=quiz.id).all()
-        quizzes_data.append({
-            "id": quiz.id,
-            "title": quiz.title,
-            "duration": quiz.duration,
-            "questions_count": len(quiz.questions),
-            "user_attempts": [
-                {"score": attempt.score, "date_attempted": attempt.date_attempted.strftime('%Y-%m-%d %H:%M:%S')}
-                for attempt in user_attempts_for_quiz
-            ]
+    try:
+        chapter = Chapter.query.get_or_404(chapter_id)
+        quizzes_data = []
+
+        # Ensure chapter.quizzes is iterable and not None
+        if chapter.quizzes:
+            for quiz in chapter.quizzes:
+                # Defensive check: Ensure quiz is not None before accessing attributes
+                if quiz is None:
+                    app.logger.warning(f"Found None quiz object in chapter {chapter_id}'s quizzes. Skipping.")
+                    continue
+
+                # Defensive access to quiz attributes
+                quiz_id = quiz.id if hasattr(quiz, 'id') else None
+                quiz_title = quiz.title if hasattr(quiz, 'title') else "Unknown Quiz"
+                quiz_duration = quiz.duration if hasattr(quiz, 'duration') else 0
+                
+                # Check if quiz_id is valid before querying QuizAttempt
+                user_attempts_for_quiz = []
+                if quiz_id is not None:
+                    user_attempts_for_quiz = QuizAttempt.query.filter_by(
+                        user_id=current_user.id, quiz_id=quiz_id
+                    ).all()
+
+                questions_count = len(quiz.questions) if hasattr(quiz, 'questions') and quiz.questions is not None else 0
+
+                attempts_data = []
+                for attempt in user_attempts_for_quiz:
+                    attempts_data.append({
+                        "score": attempt.score,
+                        "date_attempted": attempt.date_attempted.strftime('%Y-%m-%d %H:%M:%S')
+                    })
+
+                quizzes_data.append({
+                    "id": quiz_id,
+                    "title": quiz_title,
+                    "duration": quiz_duration,
+                    "questions_count": questions_count,
+                    "user_attempts": attempts_data
+                })
+        
+        # Safely access subject information
+        subject_data = None
+        if chapter.subject:
+            subject_data = {
+                "id": chapter.subject.id,
+                "name": chapter.subject.name
+            }
+
+        return jsonify({
+            "id": chapter.id,
+            "name": chapter.name,
+            "description": chapter.description,
+            "subject": subject_data,
+            "quizzes": quizzes_data
         })
-    return jsonify({
-        "id": chapter.id,
-        "name": chapter.name,
-        "description": chapter.description,
-        "subject": {
-            "id": chapter.subject.id,
-            "name": chapter.subject.name
-        } if chapter.subject else None,
-        "quizzes": quizzes_data
-    })
+    except Exception as e:
+        app.logger.error(f"Error fetching user chapter {chapter_id}: {e}")
+        return jsonify({"error": "Failed to fetch chapter details", "details": str(e)}), 500
 
 # User attempts quiz - GET quiz data
 @app.route('/user/quiz/<int:quiz_id>', methods=['GET'])
@@ -709,9 +742,18 @@ def get_user_performance():
         if attempt.quiz and attempt.quiz.chapter and attempt.quiz.chapter.subject:
             subject_name = attempt.quiz.chapter.subject.name
             if subject_name not in performance_data:
-                performance_data[subject_name] = {'total_score': 0, 'attempt_count': 0}
+                performance_data[subject_name] = {
+                    'total_score': 0,
+                    'attempt_count': 0,
+                    'best_score': 0 # Initialize best_score
+                }
             performance_data[subject_name]['total_score'] += attempt.score
             performance_data[subject_name]['attempt_count'] += 1
+            # Update best_score if current attempt's score is higher
+            performance_data[subject_name]['best_score'] = max(
+                performance_data[subject_name]['best_score'], 
+                attempt.score
+            )
     
     result = []
     for subject, data in performance_data.items():
@@ -719,7 +761,8 @@ def get_user_performance():
         result.append({
             "subject_name": subject,
             "average_score": round(avg_score, 2),
-            "total_attempts": data['attempt_count']
+            "total_attempts": data['attempt_count'],
+            "best_score": data['best_score'] # Include best_score in the response
         })
     return jsonify(result)
 
@@ -756,7 +799,7 @@ def get_leaderboard(quiz_id):
             "date_attempted": attempt.date_attempted.strftime('%Y-%m-%d %H:%M:%S')
         } for idx, (attempt, user) in enumerate(leaderboard)]
     })
-@app.route('/api/stats',methods=['GET'])
+@app.route('/api/stats', methods=['GET'])
 def get_stats():
     try:
         # Fetch counts from the database
@@ -764,14 +807,14 @@ def get_stats():
         total_users = User.query.count()
         total_subjects = Subject.query.count()
         total_attempts = QuizAttempt.query.count()
-
+        
         return jsonify({
-            'total_quizzes': total_quizzes,
-            'total_users': total_users,
-            'total_subjects': total_subjects,
-            'total_attempts': total_attempts
+            'totalQuizzes': total_quizzes,      # Changed to camelCase
+            'totalUsers': total_users,          # Changed to camelCase
+            'totalSubjects': total_subjects,    # Changed to camelCase
+            'totalAttempts': total_attempts     # Changed to camelCase
         }), 200
-
+    
     except Exception as e:
         app.logger.error(f"Error fetching stats: {e}")
         return jsonify({"error": "Failed to fetch statistics"}), 500

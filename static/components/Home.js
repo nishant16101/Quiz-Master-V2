@@ -154,11 +154,24 @@ const Home = {
           </router-link>
         </div>
       </section>
+
+      <!-- Debug section (remove in production) -->
+      <div v-if="debugMode" class="container mt-4">
+        <div class="alert alert-info">
+          <h5>Debug Info:</h5>
+          <p>Stats loading: {{ loading }}</p>
+          <p>Stats data: {{ JSON.stringify(stats, null, 2) }}</p>
+          <p>Error: {{ error }}</p>
+        </div>
+      </div>
     </div>
   `,
   data() {
     return {
-      stats: null
+      stats: null,
+      loading: true,
+      error: null,
+      debugMode: false // Set to true for debugging
     }
   },
   computed: {
@@ -175,20 +188,63 @@ const Home = {
   },
   methods: {
     async fetchStats() {
+      this.loading = true
+      this.error = null
+      
       try {
-        const response = await fetch('/api/stats')
-        if (response.ok) {
-          this.stats = await response.json()
+        // Add proper error handling and debugging
+        console.log('Fetching stats from /api/stats...')
+        
+        const response = await fetch('/api/stats', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            // Add auth header if needed
+            ...(localStorage.getItem('token') && {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            })
+          }
+        })
+        
+        console.log('Response status:', response.status)
+        console.log('Response ok:', response.ok)
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
         }
+        
+        const data = await response.json()
+        console.log('Received data:', data)
+        
+        // Convert snake_case to camelCase if needed
+        if (data.total_quizzes !== undefined) {
+          // API returns snake_case, convert to camelCase
+          this.stats = {
+            totalQuizzes: data.total_quizzes || 0,
+            totalUsers: data.total_users || 0,
+            totalSubjects: data.total_subjects || 0,
+            totalAttempts: data.total_attempts || 0
+          }
+        } else {
+          // API already returns camelCase
+          this.stats = data
+        }
+        
+        console.log('Final stats:', this.stats)
+        
       } catch (error) {
         console.error('Error fetching stats:', error)
-        // Default stats for demo
+        this.error = error.message
+        
+        // Fallback to default stats
         this.stats = {
           totalQuizzes: 150,
           totalUsers: 1234,
           totalSubjects: 25,
           totalAttempts: 5678
         }
+      } finally {
+        this.loading = false
       }
     }
   }
