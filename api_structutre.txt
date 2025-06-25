@@ -1,0 +1,65 @@
+Admin APIs (Token + Role = admin)
+Authentication & Users
+
+GET /admin – Check admin login
+GET /admin/users – List all users
+GET /admin/user/<id> – View single user
+DELETE /admin/user/<id> – Delete a user
+
+Subject Management
+
+POST /admin/subject – Create a subject
+GET /admin/subjects – List all subjects
+GET /admin/subject/<id> – View single subject
+PUT /admin/subject/<id> – Update subject
+DELETE /admin/subject/<id> – Delete subject
+
+Chapter Management
+
+POST /admin/subject/<id>/chapter – Add chapter to subject
+GET /admin/chapters – List all chapters
+GET /admin/subject/<id>/chapters – List chapters by subject
+GET /admin/chapter/<id> – View single chapter
+PUT /admin/chapter/<id> – Update chapter
+DELETE /admin/chapter/<id> – Delete chapter
+
+Quiz Management
+
+POST /admin/chapter/<id>/quiz – Add quiz to chapter
+GET /admin/quizzes – List all quizzes
+GET /admin/chapter/<id>/quizzes – List quizzes by chapter
+GET /admin/quiz/<id> – View single quiz
+PUT /admin/quiz/<id> – Update quiz
+DELETE /admin/quiz/<id> – Delete quiz
+
+Question Management
+
+POST /admin/quiz/<id>/questions – Add question to quiz
+GET /admin/questions – List all questions
+GET /admin/quiz/<id>/questions – List questions by quiz
+GET /admin/question/<id> – View single question
+PUT /admin/question/<id> – Update question
+DELETE /admin/question/<id> – Delete question
+
+
+
+User APIs (Token Required)
+Authentication & Profile
+
+POST /user/register – User registration
+POST /user/login – User login
+POST /user/logout – User logout
+GET /user/profile – View profile with statistics
+PUT /user/profile – Update profile
+
+Browse Content
+
+GET /user/subjects – List all subjects
+GET /user/subject/<id> – View subject with chapters
+GET /user/chapter/<id> – View chapter with quizzes
+
+Quiz System
+
+GET /user/quiz/<id>/start – Start quiz (get questions)
+POST /user/quiz/<id>/submit – Submit quiz answers
+GET /user/attempt/<id> – View specific attempt details

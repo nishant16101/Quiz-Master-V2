@@ -1,0 +1,474 @@
+const UserDashboard = {
+  template: `
+<div class="container-fluid">
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="d-flex justify-content-between align-items-center py-3">
+            <div>
+              <h2 class="mb-1">
+                <i class="fas fa-home text-primary"></i> 
+                Welcome back, {{ user.username }}!
+              </h2>
+              <p class="text-muted mb-0">Ready to challenge yourself today?</p>
+            </div>
+            <div class="dropdown">
+              <button class="btn btn-outline-primary dropdown-toggle" type="button" id="profileDropdown" data-bs-toggle="dropdown">
+                <i class="fas fa-user-circle"></i> Profile
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                  <router-link to="/profile" class="dropdown-item">
+                    <i class="fas fa-user me-2"></i>View Profile
+                  </router-link>
+                </li>
+                <li>
+                  <router-link to="/attempts" class="dropdown-item">
+                    <i class="fas fa-history me-2"></i>Quiz History
+                  </router-link>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <button class="dropdown-item" @click="triggerUserCsvExport" :disabled="csvExportLoading">
+                        <span v-if="csvExportLoading" class="spinner-border spinner-border-sm me-1"></span>
+                        <i v-else class="fas fa-file-csv me-2"></i>Download Quiz Attempts CSV
+                    </button>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <a href="#" @click="logout" class="dropdown-item text-danger">
+                    <i class="fas fa-sign-out-alt me-2"></i>Logout
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+          <div class="card bg-gradient-primary text-white h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h4 class="mb-1">{{ userStats.totalAttempts }}</h4>
+                  <small class="opacity-75">Quizzes Attempted</small>
+                </div>
+                <i class="fas fa-tasks fa-2x opacity-50"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+          <div class="card bg-gradient-success text-white h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h4 class="mb-1">{{ userStats.averageScore }}%</h4>
+                  <small class="opacity-75">Average Score</small>
+                </div>
+                <i class="fas fa-chart-line fa-2x opacity-50"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+          <div class="card bg-gradient-info text-white h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h4 class="mb-1">{{ userStats.bestScore }}%</h4>
+                  <small class="opacity-75">Best Score</small>
+                </div>
+                <i class="fas fa-trophy fa-2x opacity-50"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+          <div class="card bg-gradient-warning text-white h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h4 class="mb-1">{{ subjects.length }}</h4>
+                  <small class="opacity-75">Available Subjects</small>
+                </div>
+                <i class="fas fa-book fa-2x opacity-50"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header bg-light">
+              <h5 class="card-title mb-0">
+                <i class="fas fa-bolt text-warning me-2"></i>Quick Actions
+              </h5>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <router-link to="/attempts" class="btn btn-outline-primary btn-lg w-100 py-3">
+                    <i class="fas fa-history me-2 fa-lg"></i>
+                    <div>View All Attempts</div>
+                  </router-link>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <button @click="findRandomQuiz" class="btn btn-outline-info btn-lg w-100 py-3">
+                    <i class="fas fa-random me-2 fa-lg"></i>
+                    <div>Random Quiz</div>
+                  </button>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <router-link to="/subjects" class="btn btn-outline-success btn-lg w-100 py-3">
+                    <i class="fas fa-book me-2 fa-lg"></i>
+                    <div>Browse Subjects</div>
+                  </router-link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header bg-light">
+              <h5 class="card-title mb-0">
+                <i class="fas fa-graduation-cap text-success me-2"></i>Available Subjects
+              </h5>
+            </div>
+            <div class="card-body">
+              <div v-if="loadingSubjects" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading subjects...</span>
+                </div>
+              </div>
+              <div v-else-if="subjects.length === 0" class="text-center py-4 text-muted">
+                <i class="fas fa-book-open fa-3x mb-3 opacity-50"></i>
+                <p>No subjects available at the moment.</p>
+              </div>
+              <div v-else class="row">
+                <div v-for="subject in subjects" :key="subject.id" 
+                     class="col-xl-4 col-lg-6 col-md-6 mb-4">
+                  <div class="card subject-card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center">
+                      <div class="subject-icon mb-3">
+                        <i :class="getSubjectIcon(subject.name)" class="fa-3x text-primary"></i>
+                      </div>
+                      <h5 class="card-title">{{ subject.name }}</h5>
+                      <p class="card-text text-muted">{{ subject.description }}</p>
+                      <div class="mb-3">
+                        <span class="badge bg-light text-dark">
+                          <i class="fas fa-bookmark me-1"></i>{{ subject.chapters_count }} Chapters
+                        </span>
+                      </div>
+                      <button @click="exploreSubject(subject.id)" 
+                              class="btn btn-primary btn-sm">
+                        <i class="fas fa-arrow-right me-1"></i>Explore Subject
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  data() {
+    return {
+      loading: true,
+      loadingSubjects: true,
+      user: {
+        username: '',
+        email: ''
+      },
+      userStats: {
+        totalAttempts: 0,
+        averageScore: 0,
+        bestScore: 0,
+      },
+      subjects: [],
+      recentAttempts: [],
+      // New data properties for CSV export
+      csvExportLoading: false,
+      csvTaskId: null,
+      csvInterval: null,
+    }
+  },
+  methods: {
+    async fetchUserData() {
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          this.$router.push('/login');
+          return;
+        }
+
+        const headers = {
+          'Authentication-Token': token,
+          'Content-Type': 'application/json'
+        };
+
+        const profileRes = await fetch('/user/profile', { headers });
+
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          this.user.username = profileData.username;
+          this.user.email = profileData.email;
+          this.recentAttempts = profileData.recent_attempts || [];
+
+          if (profileData.recent_attempts && profileData.recent_attempts.length > 0) {
+            this.userStats.totalAttempts = profileData.recent_attempts.length;
+            const scores = profileData.recent_attempts.map(a => a.score);
+            this.userStats.averageScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+            this.userStats.bestScore = Math.max(...scores);
+          }
+        } else if (profileRes.status === 401) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          this.$router.push('/login');
+        } else {
+          throw new Error(`HTTP ${profileRes.status}: ${profileRes.statusText}`);
+        }
+      } catch (error) {
+        console.error('Error fetching user data', error);
+        this.showAlert('Error loading user data', 'danger');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchSubjects() {
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          this.$router.push('/login');
+          return;
+        }
+
+        const headers = {
+          'Authentication-Token': token,
+          'Content-Type': 'application/json'
+        };
+
+        const response = await fetch('/user/subjects', { headers });
+
+        if (response.ok) {
+          this.subjects = await response.json();
+        } else if (response.status === 401) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          this.$router.push('/login');
+        } else {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error('Error fetching subjects', error);
+        this.showAlert('Error loading subjects', 'danger');
+      } finally {
+        this.loadingSubjects = false;
+      }
+    },
+
+    exploreSubject(subjectId) {
+      this.$router.push(`/subject/${subjectId}`);
+    },
+
+    getSubjectIcon(subjectName) {
+      const icons = {
+        'Mathematics': 'fas fa-calculator',
+        'Science': 'fas fa-microscope',
+        'History': 'fas fa-landmark',
+        'English': 'fas fa-spell-check',
+        'Geography': 'fas fa-globe',
+        'Physics': 'fas fa-atom',
+        'Chemistry': 'fas fa-flask',
+        'Biology': 'fas fa-dna',
+        'Computer Science': 'fas fa-laptop-code',
+        'Literature': 'fas fa-book-open'
+      };
+      return icons[subjectName] || 'fas fa-book';
+    },
+
+    getScoreClass(score) {
+      if (score >= 80) return 'badge bg-success';
+      if (score >= 60) return 'badge bg-warning';
+      return 'badge bg-danger';
+    },
+
+    formatDate(dateString) {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    },
+
+    viewAttempt(attemptId) {
+      this.$router.push(`/attempts/${attemptId}`);
+    },
+
+    findRandomQuiz() {
+      if (this.subjects.length > 0) {
+        const randomSubject = this.subjects[Math.floor(Math.random() * this.subjects.length)];
+        this.exploreSubject(randomSubject.id);
+      }
+    },
+
+    showAlert(message, type) {
+      alert(message); // Using a simple alert for now
+    },
+
+    async logout() {
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          await fetch('/user/logout', {
+            method: 'POST',
+            headers: {
+              'Authentication-Token': token,
+              'Content-Type': 'application/json'
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Logout error', error);
+      } finally {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('savedEmail');
+        this.$router.push('/login');
+      }
+    },
+
+    // --- CSV Export Methods (User Specific) ---
+    async triggerUserCsvExport() {
+      this.csvExportLoading = true;
+      this.showAlert('Starting CSV export for your quiz attempts...', 'info');
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch('/api/export/user/quiz-attempts', { // Use the user-specific export endpoint
+          method: 'POST',
+          headers: { 'Authentication-Token': token }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        this.csvTaskId = data.task_id;
+        this.showAlert('CSV export task started. Please wait...', 'info');
+        this.startCsvStatusPolling();
+
+      } catch (error) {
+        console.error('Error triggering user quiz attempts export:', error);
+        this.showAlert('Failed to start CSV export for quiz attempts.', 'danger');
+        this.csvExportLoading = false;
+      }
+    },
+
+    startCsvStatusPolling() {
+      if (this.csvInterval) {
+        clearInterval(this.csvInterval);
+      }
+
+      this.csvInterval = setInterval(async () => {
+        if (!this.csvTaskId) {
+          clearInterval(this.csvInterval);
+          return;
+        }
+
+        const token = localStorage.getItem('auth_token');
+        try {
+          const response = await fetch(`/api/export/status/${this.csvTaskId}`, {
+            headers: { 'Authentication-Token': token }
+          });
+          const data = await response.json();
+
+          if (data.state === 'SUCCESS') {
+            clearInterval(this.csvInterval);
+            this.showAlert('CSV export completed successfully! Your file will download shortly.', 'success');
+            this.downloadCsvFile(this.csvTaskId);
+            this.csvExportLoading = false;
+            this.csvTaskId = null;
+          } else if (data.state === 'FAILURE') {
+            clearInterval(this.csvInterval);
+            this.showAlert(`CSV export failed: ${data.error || 'Unknown error'}`, 'danger');
+            this.csvExportLoading = false;
+            this.csvTaskId = null;
+          } else {
+            this.showAlert(`CSV export status: ${data.status}`, 'info');
+          }
+        } catch (error) {
+          console.error('Error checking CSV export status:', error);
+          clearInterval(this.csvInterval);
+          this.showAlert('Failed to check CSV export status.', 'danger');
+          this.csvExportLoading = false;
+          this.csvTaskId = null;
+        }
+      }, 3000); // Poll every 3 seconds
+    },
+
+    async downloadCsvFile(taskId) {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`/api/export/download-and-cleanup/${taskId}`, {
+          headers: { 'Authentication-Token': token }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'user_quiz_attempts.csv'; // Default filename
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+          if (filenameMatch && filenameMatch[1]) {
+            filename = filenameMatch[1];
+          }
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        this.showAlert('CSV file downloaded successfully!', 'success');
+      } catch (error) {
+        console.error('Error downloading CSV file:', error);
+        this.showAlert('Failed to download CSV file.', 'danger');
+      }
+    }
+  },
+
+  async mounted() {
+    await Promise.all([
+      this.fetchUserData(),
+      this.fetchSubjects()
+    ]);
+  },
+  beforeUnmount() {
+    if (this.csvInterval) {
+      clearInterval(this.csvInterval);
+    }
+  }
+}
+
+export default UserDashboard;
