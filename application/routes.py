@@ -1,4 +1,5 @@
-from flask import current_app as app,jsonify,request,render_template
+from flask import current_app,render_template,request
+from flask import Blueprint, jsonify, request, current_app
 from flask_security import auth_required,roles_required,current_user,roles_accepted,login_user,logout_user,hash_password
 from application.models import User,QuizAttempt,Subject,Chapter,Quiz,Question
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -6,8 +7,7 @@ from application.database import db
 from celery.result import AsyncResult
 from flask import send_file
 import os
-from .task import export_user_quiz_attempts,export_admin_all_users
-
+from .task import export_user_quiz_attempts,export_admin_all_users,send_gchat_notification
 from .task import csv_report
 
 from flask_security.utils import verify_and_update_password
@@ -664,6 +664,8 @@ def get_user_quiz(quiz_id):
         app.logger.error(f"Error fetching user quiz {quiz_id}: {e}")
         return jsonify({"error": "Failed to fetch quiz details", "details": str(e)}), 500
 
+
+
 # User submits quiz
 @app.route('/user/quiz/<int:quiz_id>/submit', methods=['POST'])
 @auth_required('token')
@@ -701,7 +703,7 @@ def submit_quiz_attempt(quiz_id):
             "is_correct": is_correct
         })
 
-    # Calculate score (e.g., percentage of correct answers)
+    
     score_percentage = (correct_answers_count / total_questions) * 100 if total_questions > 0 else 0
     score_percentage = round(score_percentage, 2)
 
@@ -713,17 +715,30 @@ def submit_quiz_attempt(quiz_id):
         date_attempted=datetime.now()
     )
     db.session.add(new_attempt)
-    db.session.commit()
+    try:
+        db.session.commit()
 
-    return jsonify({
-        "message": "Quiz submitted successfully!",
-        "score": {
-            "percentage": score_percentage,
-            "correct_answers": correct_answers_count,
-            "total_questions": total_questions
-        },
-        "results": detailed_results
-    })
+        # Get user details for the notification
+        user = User.query.get(current_user.id)
+        if user:
+
+            send_gchat_notification.delay(user.user_name, quiz.title, score_percentage)
+            current_app.logger.info(f"G-Chat notification task queued for user {user.user_name}.")
+
+        return jsonify({
+            "message": "Quiz submitted successfully and notification queued!",
+            "score": {
+                "percentage": score_percentage,
+                "correct_answers": correct_answers_count,
+                "total_questions": total_questions
+            },
+            "results": detailed_results
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error submitting quiz attempt: {e}")
+        return jsonify({"message": "Failed to submit quiz attempt", "error": str(e)}), 500
 
 # Get quiz history for a user
 @app.route('/user/attempts', methods=['GET'])
@@ -1034,3 +1049,4 @@ def check_bulk_export_status():
     except Exception as e:
         app.logger.error(f"Error checking bulk task status: {e}")
         return jsonify({"error": "Failed to check bulk task status"}), 500
+
