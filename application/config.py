@@ -11,6 +11,15 @@ class Config:
     MAIL_PASSOWRD = os.environ.get('MAIL_PASSWORD','9604708144')
     MAIL_DEFAULT_SENDER = 'spamofuser55@gmail.com'
 
+    #Redis Caching Configuration
+    CACHE_TYPE = "RedisCache"
+    CACHE_REDIS_URL = os.environ.get('CACHE_REDIS_URL', 'redis://localhost:6379/2')
+    CACHE_DEFAULT_TIMEOUT = 300
+    
+    #Rate Limiting
+    RATELIMIT_STORAGE_URL = os.environ.get('RATELIMIT_STORAGE_URL', 'redis://localhost:6379/3')
+    RATELIMIT_STRATEGY = 'fixed-window'
+
 class LocalDevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///lmsv2.sqlite3"

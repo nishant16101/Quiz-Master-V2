@@ -15,6 +15,8 @@ from flask_security.utils import verify_and_update_password
 from datetime import datetime
 import bcrypt
 from app import app
+from application.__init__ import cache,limiter
+
 
 
 #--------- admin routes
@@ -57,6 +59,7 @@ def get_user(user_id):
 @app.route('/admin/user/<int:user_id>',methods=['DELETE'])
 @auth_required('token')
 @roles_accepted('admin')
+@limiter.limit("5 per minute")
 def delete_user(user_id):
     user = User.query.get_or_404(user_id)
     db.session.delete(user)
@@ -69,6 +72,7 @@ def delete_user(user_id):
 @app.route('/admin/subject', methods=['POST'])
 @auth_required('token')
 @roles_required('admin')
+@limiter.limit("10 per minute")
 def create_subject():
     data = request.json
     subject = Subject(name=data['name'])
@@ -107,6 +111,7 @@ def get_subject(subject_id):
 @app.route('/admin/subject/<int:subject_id>', methods=['PUT'])
 @auth_required('token')
 @roles_required('admin')
+@limiter.limit("10 per minute")
 def update_subject(subject_id):
     subject = Subject.query.get_or_404(subject_id)
     data = request.json
@@ -130,6 +135,7 @@ def delete_subject(subject_id):
 @app.route('/admin/subject/<int:subject_id>/chapter', methods=['POST'])
 @auth_required('token')
 @roles_required('admin')
+@limiter.limit("10 per minute")
 def create_chapter(subject_id):
     data = request.json
     chapter = Chapter(name=data['name'], subject_id=subject_id)
@@ -184,6 +190,7 @@ def get_chapter(chapter_id):
 @app.route('/admin/chapter/<int:chapter_id>', methods=['PUT'])
 @auth_required('token')
 @roles_required('admin')
+@limiter.limit("10 per minute")
 def update_chapter(chapter_id):
     chapter = Chapter.query.get_or_404(chapter_id)
     data = request.json
@@ -225,6 +232,7 @@ def create_quiz(chapter_id):
 @app.route('/admin/quizzes', methods=['GET'])
 @auth_required('token')
 @roles_required('admin')
+@cache.cached(timeout=60)
 def get_all_quizzes():
     quizzes = Quiz.query.all()
     return jsonify([{
@@ -498,6 +506,7 @@ def delete_user_account():
 # Get all subjects for a user
 @app.route('/user/subjects', methods=['GET'])
 @auth_required('token')
+@cache.cached(timeout=60, key_prefix="user_subjects_")
 def get_user_subjects():
     subjects = Subject.query.all()
     subjects_data = []

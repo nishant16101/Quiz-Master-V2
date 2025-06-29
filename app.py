@@ -4,6 +4,9 @@ from application.models import User, Role
 from application.config import LocalDevelopmentConfig
 from flask_security import Security, SQLAlchemyUserDatastore, hash_password 
 from application.celery_init import celery_init_app
+from application.__init__ import cache,limiter
+
+from flask_limiter.util import get_remote_address
 
 
 
@@ -15,8 +18,13 @@ def create_app():
     db.init_app(app)
     datastore = SQLAlchemyUserDatastore(db,User,Role)
     app.security = Security(app,datastore)
+    
+    #initailize cache and limiter with app instance
+    cache.init_app(app)
+    limiter.init_app(app)
     app.app_context().push()
     return app
+
 app = create_app()
 celery = celery_init_app(app)
 

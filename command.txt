@@ -1,1 +1,12 @@
-celery -A app.celery worker --loglevel INFO
+Start the Celery Worker: celery -A app.celery worker --loglevel INFO
+
+Start the Celery Beat Scheduler -celery -A app.celery beat --loglevel INFO
+
+
+//before starting the application
+Type redis-cli and press Enter.
+SELECT 0 then FLUSHDB. - To clear the specific database used for Celery broker (usually DB 0)
+SELECT 1 then FLUSHDB. - To clear the specific database used for Celery broker (usually DB 0)
+
+
+token - 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
